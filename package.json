@@ -1,0 +1,81 @@
+{
+  "name": "thaitype-stack-spa-react-elysia-prisma-template",
+  "description": "Full-stack Todo app template with React SPA, Elysia, Prisma, and Better Auth",
+  "version": "1.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#server/*": "./server/*",
+    "#generated/*": "./generated/*",
+    "#/*": "./app/*"
+  },
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c cyan,magenta \"bun run dev:frontend\" \"bun run dev:server\"",
+    "dev:frontend": "vite dev --port 3000",
+    "dev:server": "bun run --watch server/index.ts",
+    "start": "bun run server/index.ts",
+    "build": "vite build",
+    "build:all": "vite build && bunx prisma generate",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "db:generate": "bunx prisma generate",
+    "db:push": "bunx prisma db push",
+    "db:studio": "bunx prisma studio"
+  },
+  "dependencies": {
+    "@elysiajs/eden": "^1.4.8",
+    "@elysiajs/static": "^1.4.7",
+    "@libsql/client": "^0.17.2",
+    "@prisma/adapter-libsql": "^7.5.0",
+    "@prisma/client": "^7.5.0",
+    "@radix-ui/react-checkbox": "^1.3.3",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@tailwindcss/vite": "^4.1.18",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-query": "^5.95.2",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/router-plugin": "^1.132.0",
+    "better-auth": "^1.5.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "elysia": "^1.4.28",
+    "lucide-react": "^0.545.0",
+    "pino": "^10.3.1",
+    "prisma": "^7.5.0",
+    "prismabox": "^1.1.26",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.1.18",
+    "tw-animate-css": "^1.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/devtools-vite": "latest",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.10.2",
+    "@types/pino": "^7.0.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.4",
+    "concurrently": "^9.2.1",
+    "jsdom": "^28.1.0",
+    "pino-pretty": "^13.1.3",
+    "typescript": "^5.7.2",
+    "vite": "^7.3.1",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.0.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+node_modules
+.git
+dev.db
+.env
+app/dist
+_ref
+.chief
