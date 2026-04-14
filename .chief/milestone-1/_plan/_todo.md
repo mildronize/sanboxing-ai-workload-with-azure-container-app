@@ -8,8 +8,8 @@
 
 ## Batch 2: Worker Container + Azure Integration
 
-- [ ] task-4: Build worker container image (Dockerfile, entrypoint, HTTP server)
-- [ ] task-5: Add Azure integration to chat service (CAJ trigger + Dynamic Session HTTP)
+- [x] task-4: Build worker container image (Dockerfile, entrypoint, HTTP server)
+- [x] task-5: Add Azure integration to chat service (CAJ trigger + Dynamic Session HTTP)
 
 ## Batch 3: Infrastructure
 

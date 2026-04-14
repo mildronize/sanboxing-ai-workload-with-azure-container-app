@@ -8,6 +8,15 @@ import { ChatService } from '#server/modules/chat/chat.service.ts'
 
 export interface AppConfig {
   environment: string
+  useMockWorkers: boolean
+  azure: {
+    subscriptionId: string
+    resourceGroup: string
+    cajName: string
+    sessionPoolEndpoint: string
+    backendCallbackUrl: string
+    openaiApiKey: string
+  }
 }
 
 export interface AppContext {
@@ -24,7 +33,19 @@ export interface ServiceContainer {
 export function createContainer(): ServiceContainer {
   const environment = process.env['NODE_ENV'] ?? 'development'
   const logger = createLogger({ environment })
-  const config: AppConfig = { environment }
+  const useMockWorkers = process.env['USE_MOCK_WORKERS'] !== 'false'
+  const config: AppConfig = {
+    environment,
+    useMockWorkers,
+    azure: {
+      subscriptionId: process.env['AZURE_SUBSCRIPTION_ID'] ?? '',
+      resourceGroup: process.env['AZURE_RESOURCE_GROUP'] ?? '',
+      cajName: process.env['CAJ_NAME'] ?? '',
+      sessionPoolEndpoint: process.env['SESSION_POOL_ENDPOINT'] ?? '',
+      backendCallbackUrl: process.env['BACKEND_CALLBACK_URL'] ?? '',
+      openaiApiKey: process.env['OPENAI_API_KEY'] ?? '',
+    },
+  }
   const appContext: AppContext = { logger, config }
 
   const todoRepo = new PrismaTodoRepository(appContext, prisma)

@@ -2,6 +2,7 @@ import type { IChatRepository, WorkerResult } from "./chat.repository.ts";
 import type { AppContext } from "#server/context/app-context.ts";
 import type { ILogger } from "#server/infrastructure/logging/index.ts";
 import { ChatServiceError } from "./chat.errors.ts";
+import { triggerCajJob, sendToSession } from "#server/lib/azure.ts";
 
 interface SendMessageResult {
   response?: string;
@@ -13,11 +14,13 @@ interface SendMessageResult {
 
 export class ChatService {
   private logger: ILogger;
+  private appContext: AppContext;
 
   constructor(
     appContext: AppContext,
     private repo: IChatRepository,
   ) {
+    this.appContext = appContext;
     this.logger = appContext.logger;
   }
 
@@ -38,7 +41,7 @@ export class ChatService {
   }
 
   private async triggerCajJob(message: string): Promise<SendMessageResult> {
-    this.logger.info("ChatService.triggerCajJob (mock)");
+    this.logger.info("ChatService.triggerCajJob");
 
     const jobId = `caj-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
@@ -56,12 +59,25 @@ export class ChatService {
       jobId,
     });
 
-    // Mock: simulate delayed callback (auto-complete after 5s for dev)
-    setTimeout(() => {
-      void this.handleCallback(jobId, `[Mock CAJ] Processed: "${message}"`).catch((err) => {
-        this.logger.error("Mock CAJ callback failed", { jobId, error: String(err) });
+    if (this.appContext.config.useMockWorkers) {
+      // Mock: simulate delayed callback (auto-complete after 5s for dev)
+      setTimeout(() => {
+        void this.handleCallback(jobId, `[Mock CAJ] Processed: "${message}"`).catch((err) => {
+          this.logger.error("Mock CAJ callback failed", { jobId, error: String(err) });
+        });
+      }, 5000);
+    } else {
+      const { subscriptionId, resourceGroup, cajName, backendCallbackUrl, openaiApiKey } =
+        this.appContext.config.azure;
+      await triggerCajJob({
+        subscriptionId,
+        resourceGroup,
+        cajName,
+        message,
+        callbackUrl: `${backendCallbackUrl}/api/worker/callback/${jobId}`,
+        openaiApiKey,
       });
-    }, 5000);
+    }
 
     return {
       jobId,
@@ -71,14 +87,21 @@ export class ChatService {
   }
 
   private async sendToSession(message: string): Promise<SendMessageResult> {
-    this.logger.info("ChatService.sendToSession (mock)");
+    this.logger.info("ChatService.sendToSession");
 
     const startTime = Date.now();
+    let response: string;
 
-    // Mock: simulate a short delay
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (this.appContext.config.useMockWorkers) {
+      // Mock: simulate a short delay
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      response = `[Mock Session] Echo: "${message}"`;
+    } else {
+      const { sessionPoolEndpoint } = this.appContext.config.azure;
+      const result = await sendToSession({ sessionPoolEndpoint, message });
+      response = result.response;
+    }
 
-    const response = `[Mock Session] Echo: "${message}"`;
     const elapsedMs = Date.now() - startTime;
 
     // Store assistant message
