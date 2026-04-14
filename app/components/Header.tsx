@@ -24,6 +24,13 @@ export default function Header() {
           Todo App
         </Link>
 
+        <Link
+          to="/chat"
+          className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:bg-[var(--surface-strong)]"
+        >
+          Chat
+        </Link>
+
         <div className="ml-auto flex items-center gap-2">
           <ThemeToggle />
 

@@ -2,9 +2,9 @@
 
 ## Batch 1: Backend Foundation
 
-- [ ] task-1: Add Prisma models (ChatMessage, WorkerResult) and regenerate client
-- [ ] task-2: Create chat backend module (repository, service, routes) with in-memory worker stubs
-- [ ] task-3: Create chat frontend feature with assistant-ui (ExternalStoreRuntime)
+- [x] task-1: Add Prisma models (ChatMessage, WorkerResult) and regenerate client
+- [x] task-2: Create chat backend module (repository, service, routes) with in-memory worker stubs
+- [x] task-3: Create chat frontend feature with assistant-ui (ExternalStoreRuntime)
 
 ## Batch 2: Worker Container + Azure Integration
 

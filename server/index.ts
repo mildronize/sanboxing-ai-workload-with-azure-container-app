@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { authPlugin } from "#server/lib/auth-plugin";
 import { createContainer } from "#server/context/app-context";
 import { createTodoRoutes } from "#server/modules/todo";
+import { createChatRoutes } from "#server/modules/chat";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -28,7 +29,10 @@ const baseApp = new Elysia()
   .use(authPlugin)
 
   // --- Todo routes (session-protected via { withAuth: true }) ---
-  .use(createTodoRoutes(container));
+  .use(createTodoRoutes(container))
+
+  // --- Chat routes (no auth -- demo app) ---
+  .use(createChatRoutes(container));
 
 // --- Static file serving + SPA fallback (production only) ---
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
