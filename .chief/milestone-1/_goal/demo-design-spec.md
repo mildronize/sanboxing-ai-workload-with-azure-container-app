@@ -30,12 +30,12 @@ Both workers use the **same base container image** — the only difference is ho
 
 ## Demo Flow (25 min talk)
 
-1. **Opening move (minute 0):** Presenter types something like _"Write a report about Azure Container Apps best practices, then notify me on Telegram when it's done"_ → UI triggers a **CAJ worker** (manual trigger). Cold start is visible and intentional. OpenCode inside the job starts working on the report — a genuinely long-running task.
+1. **Opening move (minute 0):** Presenter types _"Write a report about Azure Container Apps best practices"_ → UI triggers a **CAJ worker** (manual trigger). Cold start is visible and intentional. UI shows a loading placeholder while the job runs in the background.
    - **Demo point 1: Cold start time** — audience sees the delay before the job even begins.
    - **Demo point 2: Long-running task** — the job keeps running in the background while the talk continues. This is what CAJ is built for — workloads that take minutes, not seconds.
 2. **Slides / architecture talk (minutes 1–12).**
 3. **Live demo (minutes 12–20):** Presenter returns to the chat UI and asks general questions → UI routes to **Dynamic Session worker**. OpenCode responds instantly. No cold start. This is the contrast — interactive, short-lived tasks.
-4. **Telegram notification arrives:** The CAJ job finished the report and sent the Telegram notification. Presenter pauses: _"That's the Container Apps Job we kicked off at the start — it wrote the report, and now it's done."_
+4. **CAJ result appears in chat:** The background job finishes and the report pops into the chat. Presenter pauses: _"That's the Container Apps Job we kicked off at the start — it wrote the report in the background while we were talking."_
 5. **Wrap-up (minutes 20–25):** Compare the two approaches, decision matrix, Q&A.
 
 ## Architecture
@@ -74,7 +74,7 @@ Same base image, different execution model.
 ### Stack
 
 - **React 18+** with TypeScript
-- **assistant-ui** — chat component library
+- **assistant-ui** (`ExternalStoreRuntime`) — we control `messages` state and `isRunning` flag directly; no SSE/WebSocket needed
 - **Tailwind CSS** — styling
 - **Vite** — dev server / build
 
@@ -101,22 +101,26 @@ Same base image, different execution model.
 ├──────────────────────────────────────────────┤
 │                                              │
 │  👤 Write a report about Azure Container     │
-│     Apps best practices, then notify me on   │
-│     Telegram when it's done                  │
+│     Apps best practices                      │
 │                                              │
-│  🤖 On it — kicked off a background job.     │
-│     I'll send the result to Telegram.        │
-│     ⏳ CAJ | cold start: 14.2s               │
+│  🤖 ⏳ Working on it...                      │
+│     (CAJ job running in background)          │
 │                                              │
 │  👤 What is Azure Container Apps?            │
 │                                              │
 │  🤖 Azure Container Apps is a serverless ... │
 │     ⚡ Dynamic Session | 180ms               │
 │                                              │
+│  🤖 ✅ Report complete!                      │
+│     Here's your report: ...                  │
+│     ⏳ CAJ | total: 3m 22s                   │
+│                                              │
 ├──────────────────────────────────────────────┤
 │  [Type a message...]                  [Send] │
 └──────────────────────────────────────────────┘
 ```
+
+Note: The CAJ result appears in the chat asynchronously — the presenter can keep chatting via Dynamic Session while the CAJ job runs in the background. This naturally shows both workers running in parallel.
 
 ## Backend API
 
@@ -130,6 +134,8 @@ Same base image, different execution model.
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/api/chat` | Accept user message, decide worker type, trigger worker, return response. |
+| `POST` | `/api/worker/callback/{jobId}` | Receive result from CAJ worker when job completes. |
+| `GET` | `/api/worker/result/{jobId}` | Frontend polls this to check if CAJ result is ready. |
 | `GET` | `/api/health` | Health check. |
 
 ### Worker Routing Logic
@@ -143,10 +149,53 @@ The backend decides which worker to use. For the demo, this can be simple:
 ### Triggering CAJ Worker
 
 1. Backend calls Azure REST API to **manually start** a Container Apps Job
-2. Pass user message as env var (e.g. `MESSAGE="Write a report about..."`)
-3. Job container cold starts → OpenCode generates the report (long-running) → optionally sleeps → sends Telegram notification with result summary
-4. Container exits and is destroyed
-5. Backend can acknowledge the job was started immediately; the result arrives async via Telegram
+2. Pass user message + callback URL as env vars (e.g. `MESSAGE="Write a report..."`, `CALLBACK_URL="https://backend/api/worker/callback/{jobId}"`)
+3. Backend returns immediately with `{ jobId, status: "started" }` — UI shows loading state
+4. Job container cold starts → OpenCode generates the report (long-running) → optionally sleeps
+5. Job POSTs result back to `CALLBACK_URL` → backend stores result in memory
+6. Frontend polls `GET /api/worker/result/{jobId}` every 2-3s → when result is available, pushes new message into `messages` array → UI updates
+
+### Frontend CAJ Polling Flow (ExternalStoreRuntime)
+
+```typescript
+// Simplified flow inside onNew handler
+const onNew = async (message: AppendMessage) => {
+  const input = message.content[0].text;
+  setMessages(prev => [...prev, { role: "user", content: input }]);
+
+  if (workerMode === "caj") {
+    // 1. Trigger CAJ job
+    setIsRunning(true);
+    const { jobId } = await fetch("/api/chat?worker=caj", {
+      method: "POST",
+      body: JSON.stringify({ message: input }),
+    }).then(r => r.json());
+
+    // 2. Show placeholder message
+    setMessages(prev => [...prev, {
+      role: "assistant",
+      content: "⏳ Working on it... (CAJ job running in background)",
+    }]);
+
+    // 3. Poll for result
+    const poll = setInterval(async () => {
+      const res = await fetch(`/api/worker/result/${jobId}`);
+      const data = await res.json();
+      if (data.status === "done") {
+        clearInterval(poll);
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: data.result,
+        }]);
+        setIsRunning(false);
+      }
+    }, 3000);
+  } else {
+    // Dynamic Session — synchronous response
+    // ...
+  }
+};
+```
 
 ### Triggering Dynamic Session Worker
 
@@ -179,7 +228,7 @@ FROM node:22-alpine
 # Install OpenCode
 RUN npm install -g opencode-ai
 
-# Install curl for Telegram API calls
+# Install curl for callback POST
 RUN apk add --no-cache curl
 
 # Pre-configure OpenCode with GPT-5.4
@@ -206,7 +255,7 @@ if [ "$MODE" = "job" ]; then
   # 1. Run OpenCode to generate the report (long-running)
   REPORT=$(opencode -p "$MESSAGE" -q)
 
-  # 2. Save report output (optional: write to blob storage)
+  # 2. Save report output
   echo "$REPORT" > /tmp/report.md
 
   # 3. Sleep to pad remaining time if task finishes early
@@ -214,10 +263,10 @@ if [ "$MODE" = "job" ]; then
     sleep "$EXTRA_SLEEP_SECONDS"
   fi
 
-  # 4. Notify via Telegram that the job is done
-  curl -s -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
-    -d chat_id="$CHAT_ID" \
-    -d text="✅ Report is done! Here's a summary: $(head -c 500 /tmp/report.md)"
+  # 4. POST result back to backend via callback URL
+  curl -s -X POST "$CALLBACK_URL" \
+    -H "Content-Type: application/json" \
+    -d "{\"result\": $(cat /tmp/report.md | jq -Rs .)}"
 else
   # === Dynamic Session mode: HTTP server ===
   bun run /app/server.ts
@@ -290,7 +339,6 @@ Key settings:
 | Container Apps Job (manual trigger) | CAJ worker — long-running tasks with OpenCode, `MODE=job` |
 | Custom Container Session Pool | Pre-warmed pool of the same image, `MODE=session` |
 | Azure Container Registry | Store the shared worker image |
-| Telegram Bot | Receives the reminder (existing HuskClaw bot) |
 
 ## Non-Goals
 
@@ -300,21 +348,21 @@ Key settings:
 
 ## Pre-Demo Checklist
 
-- [ ] Worker image built and pushed to ACR (single image, both modes)
+- [ ] Worker image built and pushed to ACR (single image, both modes, includes `jq` and `curl`)
 - [ ] OpenCode + GPT-5.4 credentials injected via env vars
 - [ ] Session pool created with `--ready-session-instances 2` and verified warm
-- [ ] CAJ manual trigger tested end-to-end (report generation + Telegram delivery)
-- [ ] `EXTRA_SLEEP_SECONDS` calibrated so Telegram arrives at a good time during the talk
+- [ ] CAJ manual trigger tested end-to-end (report generation + callback POST to backend)
+- [ ] `EXTRA_SLEEP_SECONDS` calibrated so result arrives at a good time during the talk
 - [ ] Dynamic Session tested: POST to management endpoint returns response
 - [ ] `Azure ContainerApps Session Executor` role assigned to backend identity
-- [ ] Telegram bot token configured and tested
+- [ ] Backend `/api/callback` endpoint reachable from CAJ container (network/egress)
 - [ ] Network: egress enabled on session pool (needs to reach OpenAI API)
 - [ ] Font size verified on projector resolution
 - [ ] Backup: pre-recorded video of both demo paths
 
 ## Open Questions
 
-1. **CAJ timing control** — The report generation time depends on OpenCode + GPT-5.4 response length. `EXTRA_SLEEP_SECONDS` can pad the total duration, but rehearsal is needed to find the right values so the Telegram notification arrives at a good moment during the talk.
+1. **CAJ callback reachability** — The CAJ container needs egress to POST back to the backend. Verify the backend URL is reachable from within the Container Apps Environment (same environment = internal URL should work).
 2. **GPT-5.4 availability** — GPT-5.2 retires June 5, 2026. Confirm talk date and plan accordingly.
 3. **Session pool region** — Custom container sessions may not be available in all regions. Verify availability in the target region.
-4. **Image size** — Node.js + OpenCode image may be large. Consider build optimization to keep pre-warm fast.
+4. **Image size** — Node.js + OpenCode + jq image may be large. Consider build optimization to keep pre-warm fast.
