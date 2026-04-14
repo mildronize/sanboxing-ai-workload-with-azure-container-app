@@ -18,6 +18,6 @@
 
 ## Batch 4: CI/CD + Polish
 
-- [ ] task-8: GitHub Actions workflows (build-push + deploy)
-- [ ] task-9: Demo UI polish (dark theme, large fonts, status badges, latency display)
-- [ ] task-10: App Dockerfile for backend container
+- [x] task-8: GitHub Actions workflows (build-push + deploy)
+- [x] task-9: Demo UI polish (dark theme, large fonts, status badges, latency display)
+- [x] task-10: Environment configuration and documentation

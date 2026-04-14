@@ -1,0 +1,30 @@
+name: Deploy to Azure
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    defaults:
+      run:
+        working-directory: terraform
+    env:
+      ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9"
+      - run: terraform init
+      - run: terraform validate
+      - run: terraform plan -var="backend_image=ghcr.io/${{ github.repository_owner }}/demo-app:latest" -var="worker_image=ghcr.io/${{ github.repository_owner }}/demo-worker:latest" -var="openai_api_key=${{ secrets.OPENAI_API_KEY }}" -out=tfplan
+      - run: terraform apply -auto-approve tfplan
