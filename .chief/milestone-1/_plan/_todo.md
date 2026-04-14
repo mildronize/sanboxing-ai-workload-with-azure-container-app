@@ -13,8 +13,8 @@
 
 ## Batch 3: Infrastructure
 
-- [ ] task-6: Terraform configuration for Azure resources
-- [ ] task-7: Root Dockerfile for backend app container
+- [x] task-6: Terraform configuration for Azure resources
+- [x] task-7: Root Dockerfile for backend app container
 
 ## Batch 4: CI/CD + Polish
 

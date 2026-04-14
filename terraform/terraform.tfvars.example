@@ -1,0 +1,17 @@
+# Copy this file to terraform.tfvars and fill in real values.
+# Never commit terraform.tfvars — it contains secrets.
+
+location            = "southeastasia"
+resource_group_name = "rg-sandbox-ai-demo"
+project_name        = "sandbox-ai-demo"
+
+# Sensitive — use environment variable TF_VAR_openai_api_key instead of committing this.
+openai_api_key = "sk-proj-REPLACE_ME"
+
+# Container image references (typically set by CI after docker build + push)
+backend_image = "ghcr.io/your-org/sandbox-ai-backend:latest"
+worker_image  = "ghcr.io/your-org/sandbox-ai-worker:latest"
+
+# Optional: override the callback URL the backend advertises to CAJ workers.
+# Leave empty on first apply; fill in after the backend FQDN is known.
+backend_callback_url = ""
