@@ -8,11 +8,6 @@ output "session_pool_endpoint" {
   value       = "https://${var.location}.dynamicsessions.io/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/sessionPools/${var.project_name}-session-pool"
 }
 
-output "acr_login_server" {
-  description = "ACR login server (e.g. <name>.azurecr.io)."
-  value       = azurerm_container_registry.main.login_server
-}
-
 output "resource_group_name" {
   description = "Name of the resource group containing all resources."
   value       = azurerm_resource_group.main.name

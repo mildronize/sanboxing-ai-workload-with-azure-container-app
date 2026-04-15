@@ -60,18 +60,14 @@ Copy the `Forwarding` URL (e.g. `https://a1b2c3d4.ngrok-free.app`). This changes
 
 ## Step 3: Build and Push the Worker Image
 
-```bash
-# Log in to GitHub Container Registry
-echo $GITHUB_TOKEN | docker login ghcr.io -u <your-github-username> --password-stdin
+Push to `main` (or trigger manually from the **Actions** tab) to run the **Build and Push Images** workflow. It builds and pushes:
 
-# Build the worker image
-docker build -t ghcr.io/<your-github-username>/demo-worker:latest ./worker
+- `ghcr.io/<owner>/demo-app:latest`
+- `ghcr.io/<owner>/demo-worker:latest`
 
-# Push it
-docker push ghcr.io/<your-github-username>/demo-worker:latest
-```
+Both images are tagged with `latest` and the commit SHA.
 
-Make sure the package visibility is set to **public** in GitHub (Settings > Packages) so Azure can pull it without registry credentials.
+After the workflow completes, set the package visibility to **public** in GitHub (**Settings > Packages > Package settings > Danger Zone > Change visibility**) so Azure can pull the worker image without registry credentials.
 
 ## Step 4: Set Up Terraform Cloud
 
@@ -149,7 +145,7 @@ This creates:
 | Container Apps Environment | `sandbox-ai-demo-env` | Shared environment |
 | Container App Job | `sandbox-ai-demo-worker-job` | CAJ worker (manual trigger) |
 | Session Pool | `sandbox-ai-demo-session-pool` | Pre-warmed Dynamic Sessions |
-| Container Registry | `sandboxaidemo` | ACR |
+| Role Assignment | Session Executor | Backend identity can execute sessions |
 
 Note the outputs after apply:
 
