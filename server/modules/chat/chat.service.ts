@@ -67,7 +67,7 @@ export class ChatService {
         });
       }, 5000);
     } else {
-      const { subscriptionId, resourceGroup, cajName, backendCallbackUrl, openaiApiKey } =
+      const { subscriptionId, resourceGroup, cajName, backendCallbackUrl, azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName } =
         this.appContext.config.azure;
       await triggerCajJob({
         subscriptionId,
@@ -75,7 +75,9 @@ export class ChatService {
         cajName,
         message,
         callbackUrl: `${backendCallbackUrl}/api/worker/callback/${jobId}`,
-        openaiApiKey,
+        azureOpenaiEndpoint,
+        azureOpenaiApiKey,
+        azureOpenaiDeploymentName,
       });
     }
 

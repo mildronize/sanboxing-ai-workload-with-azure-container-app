@@ -147,9 +147,9 @@ export function ChatPanel() {
                 <h2 className="text-2xl font-bold text-[var(--sea-ink)]">
                   Sandbox Chat
                 </h2>
-                {/* GPT-5.4 model badge */}
+                {/* Azure OpenAI model badge */}
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lagoon)]/40 bg-[var(--lagoon)]/10 px-2.5 py-0.5 text-sm font-semibold text-[var(--lagoon-deep)]">
-                  GPT-5.4
+                  Azure OpenAI
                 </span>
               </div>
               <WorkerModeToggle mode={workerMode} onToggle={setWorkerMode} />

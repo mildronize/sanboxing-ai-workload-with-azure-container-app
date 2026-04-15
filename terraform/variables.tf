@@ -16,10 +16,20 @@ variable "project_name" {
   default     = "sandbox-ai-demo"
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key passed to backend and worker containers."
+variable "azure_openai_endpoint" {
+  description = "Azure OpenAI endpoint (e.g. https://your-resource.openai.azure.com)."
+  type        = string
+}
+
+variable "azure_openai_api_key" {
+  description = "Azure OpenAI API key."
   type        = string
   sensitive   = true
+}
+
+variable "azure_openai_deployment_name" {
+  description = "Azure OpenAI deployment name."
+  type        = string
 }
 
 variable "backend_image" {

@@ -1,4 +1,3 @@
 {
-  "model": "gpt-5.4",
-  "provider": "openai"
+  "provider": "azure-openai"
 }

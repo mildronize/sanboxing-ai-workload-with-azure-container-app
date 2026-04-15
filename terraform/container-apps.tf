@@ -80,8 +80,18 @@ resource "azurerm_container_app" "backend" {
       }
 
       env {
-        name        = "OPENAI_API_KEY"
-        secret_name = "openai-api-key"
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = var.azure_openai_endpoint
+      }
+
+      env {
+        name        = "AZURE_OPENAI_API_KEY"
+        secret_name = "azure-openai-api-key"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
+        value = var.azure_openai_deployment_name
       }
     }
 
@@ -90,8 +100,8 @@ resource "azurerm_container_app" "backend" {
   }
 
   secret {
-    name  = "openai-api-key"
-    value = var.openai_api_key
+    name  = "azure-openai-api-key"
+    value = var.azure_openai_api_key
   }
 
   ingress {
@@ -142,8 +152,18 @@ resource "azurerm_container_app_job" "worker" {
       }
 
       env {
-        name        = "OPENAI_API_KEY"
-        secret_name = "openai-api-key"
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = var.azure_openai_endpoint
+      }
+
+      env {
+        name        = "AZURE_OPENAI_API_KEY"
+        secret_name = "azure-openai-api-key"
+      }
+
+      env {
+        name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
+        value = var.azure_openai_deployment_name
       }
 
       # MESSAGE and CALLBACK_URL are injected at trigger time — not defined here.
@@ -151,8 +171,8 @@ resource "azurerm_container_app_job" "worker" {
   }
 
   secret {
-    name  = "openai-api-key"
-    value = var.openai_api_key
+    name  = "azure-openai-api-key"
+    value = var.azure_openai_api_key
   }
 
   tags = {

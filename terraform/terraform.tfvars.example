@@ -5,8 +5,10 @@ location            = "southeastasia"
 resource_group_name = "rg-sandbox-ai-demo"
 project_name        = "sandbox-ai-demo"
 
-# Sensitive — use environment variable TF_VAR_openai_api_key instead of committing this.
-openai_api_key = "sk-proj-REPLACE_ME"
+# Azure OpenAI
+azure_openai_endpoint        = "https://your-resource.openai.azure.com"
+azure_openai_api_key         = "REPLACE_ME"
+azure_openai_deployment_name = "your-deployment-name"
 
 # Container image references (typically set by CI after docker build + push)
 worker_image  = "ghcr.io/your-org/demo-worker:latest"

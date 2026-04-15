@@ -9,7 +9,7 @@ RUN npm install -g opencode-ai
 # Install curl and jq for callback POST in job mode
 RUN apk add --no-cache curl jq
 
-# Pre-configure OpenCode with GPT-5.4
+# Pre-configure OpenCode with Azure OpenAI
 COPY opencode-config /root/.config/opencode/
 
 # Copy entrypoint and HTTP server

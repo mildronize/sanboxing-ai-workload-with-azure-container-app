@@ -15,7 +15,9 @@ export interface AppConfig {
     cajName: string
     sessionPoolEndpoint: string
     backendCallbackUrl: string
-    openaiApiKey: string
+    azureOpenaiEndpoint: string
+    azureOpenaiApiKey: string
+    azureOpenaiDeploymentName: string
   }
 }
 
@@ -43,7 +45,9 @@ export function createContainer(): ServiceContainer {
       cajName: process.env['CAJ_NAME'] ?? '',
       sessionPoolEndpoint: process.env['SESSION_POOL_ENDPOINT'] ?? '',
       backendCallbackUrl: process.env['BACKEND_CALLBACK_URL'] ?? '',
-      openaiApiKey: process.env['OPENAI_API_KEY'] ?? '',
+      azureOpenaiEndpoint: process.env['AZURE_OPENAI_ENDPOINT'] ?? '',
+      azureOpenaiApiKey: process.env['AZURE_OPENAI_API_KEY'] ?? '',
+      azureOpenaiDeploymentName: process.env['AZURE_OPENAI_DEPLOYMENT_NAME'] ?? '',
     },
   }
   const appContext: AppContext = { logger, config }

@@ -25,7 +25,7 @@ How to deploy from zero to a working demo: web app runs locally on your machine,
 - A [Terraform Cloud](https://app.terraform.io/) account (free tier)
 - A GitHub account with access to ghcr.io
 - An Azure subscription
-- An OpenAI API key with GPT-5.4 access
+- An Azure OpenAI resource with a deployed model
 
 ## Step 1: Set Up the Local Web App
 
@@ -168,7 +168,9 @@ Go to your workspace **Settings > Variables** and add:
 | `location` | `southeastasia` | No |
 | `resource_group_name` | `rg-sandbox-ai-demo` | No |
 | `project_name` | `sandbox-ai-demo` | No |
-| `openai_api_key` | `sk-proj-...` | Yes |
+| `azure_openai_endpoint` | `https://your-resource.openai.azure.com` | No |
+| `azure_openai_api_key` | Your Azure OpenAI key | Yes |
+| `azure_openai_deployment_name` | Your deployment name | No |
 | `worker_image` | `ghcr.io/<your-github-username>/demo-worker:latest` | No |
 | `backend_image` | `ghcr.io/<your-github-username>/demo-app:latest` | No |
 | `backend_callback_url` | `https://a1b2c3d4.ngrok-free.app` (your ngrok URL) | No |
@@ -226,7 +228,9 @@ AZURE_RESOURCE_GROUP="rg-sandbox-ai-demo"
 CAJ_NAME="sandbox-ai-demo-worker-job"
 SESSION_POOL_ENDPOINT="<from terraform output session_pool_endpoint>"
 BACKEND_CALLBACK_URL="<your ngrok URL>"
-OPENAI_API_KEY="sk-proj-..."
+AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
+AZURE_OPENAI_API_KEY=""
+AZURE_OPENAI_DEPLOYMENT_NAME="your-deployment-name"
 ```
 
 ## Step 9: Run the Demo

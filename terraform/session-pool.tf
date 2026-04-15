@@ -24,8 +24,16 @@ resource "azapi_resource" "session_pool" {
                 value = "session"
               },
               {
-                name  = "OPENAI_API_KEY"
-                value = var.openai_api_key
+                name  = "AZURE_OPENAI_ENDPOINT"
+                value = var.azure_openai_endpoint
+              },
+              {
+                name  = "AZURE_OPENAI_API_KEY"
+                value = var.azure_openai_api_key
+              },
+              {
+                name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
+                value = var.azure_openai_deployment_name
               }
             ]
             resources = {
