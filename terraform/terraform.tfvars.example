@@ -9,8 +9,8 @@ project_name        = "sandbox-ai-demo"
 openai_api_key = "sk-proj-REPLACE_ME"
 
 # Container image references (typically set by CI after docker build + push)
-backend_image = "ghcr.io/your-org/sandbox-ai-backend:latest"
-worker_image  = "ghcr.io/your-org/sandbox-ai-worker:latest"
+worker_image  = "ghcr.io/your-org/demo-worker:latest"
+backend_image = "ghcr.io/your-org/demo-app:latest"
 
 # Optional: override the callback URL the backend advertises to CAJ workers.
 # Leave empty on first apply; fill in after the backend FQDN is known.

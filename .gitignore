@@ -16,3 +16,13 @@ _ref
 
 *.db
 generated
+
+# Terraform
+terraform/tfc-vars.env
+terraform/.terraform
+terraform/*.tfstate*
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+ref/lumebot
+.logs

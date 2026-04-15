@@ -12,18 +12,17 @@ How to deploy from zero to a working demo: web app runs locally on your machine,
 │        ▼             │──────►│  (HTTP request from backend)     │
 │  ngrok tunnel        │       │                                  │
 │  https://xxxx.ngrok  │       │  Container Apps Environment      │
-│  .io                 │       │  + ACR                           │
+│  .io                 │       │                                  │
 └──────────────────────┘       └──────────────────────────────────┘
 ```
 
 ## Prerequisites
 
 - [Bun](https://bun.sh/) v1+
-- [Docker](https://docs.docker.com/get-docker/)
 - [Terraform](https://developer.hashicorp.com/terraform/install) v1.9+
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)
 - [ngrok](https://ngrok.com/download) (free tier works)
-- A [Terraform Cloud](https://app.terraform.io/) account (free tier, for remote state)
+- A [Terraform Cloud](https://app.terraform.io/) account (free tier)
 - A GitHub account with access to ghcr.io
 - An Azure subscription
 - An OpenAI API key with GPT-5.4 access
@@ -53,10 +52,21 @@ Stop the dev server once verified. We'll restart it later with real Azure config
 In a separate terminal:
 
 ```bash
-ngrok http 3001
+bun run scripts/tunnel.ts
 ```
 
-Copy the `Forwarding` URL (e.g. `https://a1b2c3d4.ngrok-free.app`). This changes every time you restart ngrok (free tier), so keep this terminal open throughout.
+This starts ngrok on port 3001 and automatically:
+1. Updates the Azure Container App's `BACKEND_CALLBACK_URL` env var
+2. Updates `terraform/tfc-vars.env` with the new ngrok URL
+
+The tunnel URL changes every restart (free tier), so keep this terminal open throughout. If you restart ngrok, just re-run the script — it handles the updates automatically.
+
+Alternatively, start ngrok manually and copy the URL:
+
+```bash
+ngrok http 3001
+# Copy the Forwarding URL (e.g. https://a1b2c3d4.ngrok-free.app)
+```
 
 ## Step 3: Build and Push the Worker Image
 
@@ -69,11 +79,42 @@ Both images are tagged with `latest` and the commit SHA.
 
 After the workflow completes, set the package visibility to **public** in GitHub (**Settings > Packages > Package settings > Danger Zone > Change visibility**) so Azure can pull the worker image without registry credentials.
 
-## Step 4: Set Up Terraform Cloud
+## Step 4: Create an Azure Service Principal
+
+Terraform Cloud runs remotely — it can't use your local `az login`. Create a service principal:
+
+```bash
+az login
+
+az ad sp create-for-rbac \
+  --name "sandbox-ai-demo-sp" \
+  --role Contributor \
+  --scopes /subscriptions/$(az account show --query id -o tsv)
+```
+
+Save the output:
+
+```json
+{
+  "appId": "...",        // ARM_CLIENT_ID
+  "password": "...",     // ARM_CLIENT_SECRET
+  "tenant": "..."        // ARM_TENANT_ID
+}
+```
+
+Also note your subscription ID:
+
+```bash
+az account show --query id -o tsv
+# This is ARM_SUBSCRIPTION_ID
+```
+
+## Step 5: Set Up Terraform Cloud
 
 1. Go to [app.terraform.io](https://app.terraform.io/) and create an organization (or use existing)
-2. Create a workspace named `sandbox-ai-demo` with **execution mode: Local**
-3. Run `terraform login` on your machine to authenticate
+2. Create a workspace named `sandbox-ai-demo`
+3. Set execution mode to **Remote** (Settings > General)
+4. Run `terraform login` on your machine to authenticate the CLI
 
 Add the cloud backend to `terraform/main.tf` (if not already present):
 
@@ -88,43 +129,51 @@ terraform {
 }
 ```
 
-## Step 5: Azure Login and Service Principal
+## Step 6: Configure Variables in Terraform Cloud
+
+### Option A: Using the setup script
 
 ```bash
-az login
+# Copy and fill in your values
+cp terraform/tfc-vars.env.example terraform/tfc-vars.env
+# Edit terraform/tfc-vars.env
 
-# Note your subscription ID
-az account show --query id -o tsv
+# Get your TFC token and set env vars
+export TFC_TOKEN=$(cat ~/.terraform.d/credentials.tfrc.json | bun -e "console.log(JSON.parse(await Bun.stdin.text()).credentials['app.terraform.io'].token)")
+export TFC_ORG=your-org-name
+
+# Push all variables to Terraform Cloud
+bun run terraform/scripts/setup-tfc-vars.ts
 ```
 
-Terraform authenticates via Azure CLI by default. No service principal needed for local execution.
+The script creates or updates all variables in your TFC workspace. Sensitive values are marked automatically.
 
-## Step 6: Configure Terraform Variables
+### Option B: Manual setup via Terraform Cloud UI
 
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-```
+Go to your workspace **Settings > Variables** and add:
 
-Edit `terraform.tfvars`:
+### Environment Variables
 
-```hcl
-location            = "southeastasia"
-resource_group_name = "rg-sandbox-ai-demo"
-project_name        = "sandbox-ai-demo"
+| Key | Value | Sensitive |
+|-----|-------|-----------|
+| `ARM_CLIENT_ID` | Service principal `appId` | No |
+| `ARM_CLIENT_SECRET` | Service principal `password` | Yes |
+| `ARM_SUBSCRIPTION_ID` | Your subscription ID | No |
+| `ARM_TENANT_ID` | Service principal `tenant` | No |
 
-openai_api_key = "sk-proj-..."
+### Terraform Variables
 
-# Use your ghcr.io worker image
-worker_image = "ghcr.io/<your-github-username>/demo-worker:latest"
+| Key | Value | Sensitive |
+|-----|-------|-----------|
+| `location` | `southeastasia` | No |
+| `resource_group_name` | `rg-sandbox-ai-demo` | No |
+| `project_name` | `sandbox-ai-demo` | No |
+| `openai_api_key` | `sk-proj-...` | Yes |
+| `worker_image` | `ghcr.io/<your-github-username>/demo-worker:latest` | No |
+| `backend_image` | `ghcr.io/<your-github-username>/demo-app:latest` | No |
+| `backend_callback_url` | `https://a1b2c3d4.ngrok-free.app` (your ngrok URL) | No |
 
-# The backend image is not used (web app runs locally),
-# but Terraform still requires it. Use a placeholder or the worker image.
-backend_image = "ghcr.io/<your-github-username>/demo-worker:latest"
-
-# Set this to your ngrok URL
-backend_callback_url = "https://a1b2c3d4.ngrok-free.app"
-```
+Note: `backend_image` is required by Terraform but not used (web app runs locally). Set it to the worker image as a placeholder.
 
 ## Step 7: Deploy Azure Infrastructure
 
@@ -135,6 +184,8 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+These commands run **remotely on Terraform Cloud** — your local CLI triggers the run and streams the output.
 
 This creates:
 
@@ -220,14 +271,10 @@ Test both modes:
 
 ### ngrok URL changed
 
-If you restarted ngrok, the URL changed. Update `.env` with the new URL, then update Terraform so the CAJ job gets the new callback URL:
+If you restarted ngrok, just re-run the tunnel script — it updates everything automatically:
 
 ```bash
-# Update terraform.tfvars with new ngrok URL
-# backend_callback_url = "https://new-url.ngrok-free.app"
-
-cd terraform
-terraform apply
+bun run scripts/tunnel.ts
 ```
 
 Then restart the web app: `bun run dev`
