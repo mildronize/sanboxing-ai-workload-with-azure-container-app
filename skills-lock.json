@@ -75,6 +75,11 @@
       "source": "assistant-ui/skills",
       "sourceType": "github",
       "computedHash": "9ce8f6ff9d76fb1fa3101da8240b805da09836bf6aad9a1bc3f671060de461a7"
+    },
+    "upgrade-chief": {
+      "source": "thaitype/chief-agent-framework",
+      "sourceType": "github",
+      "computedHash": "1491f589604c855e6d3bc2fc87767f62c9997c1a9060aea89a4aefe526f45ddf"
     }
   }
 }
