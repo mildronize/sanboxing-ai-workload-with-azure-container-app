@@ -23,6 +23,8 @@ terraform/.terraform
 terraform/*.tfstate*
 terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
+terraform/out.txt
+terraform/tfplan
 
 ref/lumebot
 .logs

@@ -3,7 +3,7 @@
 
 resource "azapi_resource" "session_pool" {
   type      = "Microsoft.App/sessionPools@2024-02-02-preview"
-  name      = "${var.project_name}-session-pool"
+  name      = replace("${var.project_name}sessionpool", "-", "")
   location  = azurerm_resource_group.main.location
   parent_id = azurerm_resource_group.main.id
 

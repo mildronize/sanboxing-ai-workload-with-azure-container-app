@@ -11,6 +11,13 @@ terraform {
       version = "~> 1.13"
     }
   }
+
+  cloud {
+    organization = "thada-wth"
+    workspaces {
+      name = "sandbox-ai-demo"
+    }
+  }
 }
 
 provider "azurerm" {
