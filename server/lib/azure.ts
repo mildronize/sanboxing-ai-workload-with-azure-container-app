@@ -4,11 +4,8 @@ interface TriggerCajJobParams {
   subscriptionId: string;
   resourceGroup: string;
   cajName: string;
-  message: string;
+  code: string;
   callbackUrl: string;
-  azureOpenaiEndpoint: string;
-  azureOpenaiApiKey: string;
-  azureOpenaiDeploymentName: string;
 }
 
 interface SendToSessionParams {
@@ -24,7 +21,7 @@ interface SendToSessionResult {
 }
 
 export async function triggerCajJob(params: TriggerCajJobParams): Promise<string> {
-  const { subscriptionId, resourceGroup, cajName, message, callbackUrl, azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName } = params;
+  const { subscriptionId, resourceGroup, cajName, code, callbackUrl } = params;
 
   const credential = new DefaultAzureCredential();
   const tokenResponse = await credential.getToken("https://management.azure.com/.default");
@@ -37,11 +34,8 @@ export async function triggerCajJob(params: TriggerCajJobParams): Promise<string
       containers: [
         {
           env: [
-            { name: "MESSAGE", value: message },
+            { name: "CODE", value: code },
             { name: "CALLBACK_URL", value: callbackUrl },
-            { name: "AZURE_OPENAI_ENDPOINT", value: azureOpenaiEndpoint },
-            { name: "AZURE_OPENAI_API_KEY", value: azureOpenaiApiKey },
-            { name: "AZURE_OPENAI_DEPLOYMENT_NAME", value: azureOpenaiDeploymentName },
           ],
         },
       ],

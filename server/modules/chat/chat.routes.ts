@@ -7,23 +7,23 @@ export function createChatRoutes(container: ServiceContainer) {
       "/chat",
       async ({ body, query }) => {
         const workerType = query.worker ?? "session";
-        const result = await container.chatService.sendMessage(body.message, workerType);
+        const result = await container.chatService.sendMessage(body.message, workerType, body.conversationId);
         return result;
       },
       {
-        body: t.Object({ message: t.String() }),
+        body: t.Object({ message: t.String(), conversationId: t.Optional(t.String()) }),
         query: t.Object({ worker: t.Optional(t.Union([t.Literal("caj"), t.Literal("session")])) }),
       },
     )
     .post(
       "/worker/callback/:jobId",
       async ({ params, body }) => {
-        await container.chatService.handleCallback(params.jobId, body.result);
+        await container.chatService.handleCallback(params.jobId, body.stdout);
         return { status: "received" };
       },
       {
         params: t.Object({ jobId: t.String() }),
-        body: t.Object({ result: t.String() }),
+        body: t.Object({ stdout: t.String() }),
       },
     )
     .get(

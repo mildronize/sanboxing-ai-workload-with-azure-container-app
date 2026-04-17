@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useExternalStoreRuntime } from "@assistant-ui/react";
 import type { ThreadMessageLike, AppendMessage } from "@assistant-ui/react";
 import { api } from "#/lib/eden";
@@ -40,6 +40,8 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [workerMode, setWorkerMode] = useState<WorkerMode>("session");
+  // conversationId provides session affinity for PythonLTS kernel across messages
+  const conversationIdRef = useRef<string>(`conv-${crypto.randomUUID()}`);
 
   const onNew = useCallback(
     async (message: AppendMessage) => {
@@ -63,7 +65,7 @@ export function useChat() {
       try {
         if (workerMode === "session") {
           const { data, error } = await api.api.chat.post(
-            { message: textContent },
+            { message: textContent, conversationId: conversationIdRef.current },
             { query: { worker: "session" } },
           );
           if (error) throw new Error("Failed to send message");
@@ -71,7 +73,7 @@ export function useChat() {
           const assistantMsg: ChatMessage = {
             id: `assistant-${Date.now()}`,
             role: "assistant",
-            content: data.response ?? "",
+            content: data.reply ?? data.stdout ?? "",
             status: "complete",
             workerType: "session",
             elapsedMs: data.elapsedMs ?? undefined,
@@ -80,7 +82,7 @@ export function useChat() {
         } else {
           // CAJ mode: start job then poll
           const { data, error } = await api.api.chat.post(
-            { message: textContent },
+            { message: textContent, conversationId: conversationIdRef.current },
             { query: { worker: "caj" } },
           );
           if (error) throw new Error("Failed to send message");

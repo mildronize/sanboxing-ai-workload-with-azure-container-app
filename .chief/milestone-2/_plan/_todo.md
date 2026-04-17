@@ -8,9 +8,9 @@
 
 ## Batch 2: Backend Logic (Service + Routes)
 
-- [ ] task-4: Agent loop + chat service rewrite (session path)
-- [ ] task-5: Chat service rewrite (CAJ path) + CAJ trigger update
-- [ ] task-6: Chat routes + API response shape update + callback handler (includes former task-10)
+- [x] task-4: Agent loop + chat service rewrite (session path)
+- [x] task-5: Chat service rewrite (CAJ path) + CAJ trigger update
+- [x] task-6: Chat routes + API response shape update + callback handler (includes former task-10)
 
 ## Batch 3: Frontend + Worker + Terraform
 
