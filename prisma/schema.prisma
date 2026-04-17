@@ -26,7 +26,6 @@ model User {
 
   sessions Session[]
   accounts Account[]
-  todos    Todo[]
 }
 
 model Session {
@@ -67,18 +66,6 @@ model Verification {
   expiresAt  DateTime
   createdAt  DateTime? @default(now())
   updatedAt  DateTime? @updatedAt
-}
-
-model Todo {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ChatMessage {
