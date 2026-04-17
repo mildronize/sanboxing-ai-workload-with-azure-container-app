@@ -1,20 +1,23 @@
 # Deployment Guide
 
-How to deploy from zero to a working demo: web app runs locally on your machine, worker containers (CAJ + Dynamic Sessions) run on Azure, ngrok tunnels your local backend so CAJ workers can POST callbacks.
+How to deploy from zero to a working demo: web app runs locally on your machine, CAJ worker runs on Azure, PythonLTS session pool is managed by Microsoft, ngrok tunnels your local backend so CAJ workers can POST callbacks.
 
 ```
 ┌──────────────────────┐       ┌──────────────────────────────────┐
 │  Your Laptop         │       │  Azure                           │
 │                      │       │                                  │
 │  Elysia + React      │◄──────│  CAJ Worker (callback via ngrok) │
-│  localhost:3001      │       │                                  │
-│        │             │       │  Dynamic Session Pool            │
-│        ▼             │──────►│  (HTTP request from backend)     │
-│  ngrok tunnel        │       │                                  │
-│  https://xxxx.ngrok  │       │  Container Apps Environment      │
-│  .io                 │       │                                  │
+│  localhost:3001      │       │  (minimal Python, runs CODE)     │
+│        │             │       │                                  │
+│        ▼             │──────►│  PythonLTS Session Pool           │
+│  ngrok tunnel        │       │  (Microsoft-managed, /executions) │
+│  https://xxxx.ngrok  │       │                                  │
+│  .io                 │       │  Azure OpenAI (gpt-4o-mini)      │
+│                      │       │                                  │
 └──────────────────────┘       └──────────────────────────────────┘
 ```
+
+Key difference from v3: the backend calls Azure OpenAI directly (tool calling), generates Python code, and dispatches it to either the PythonLTS session pool or a CAJ container. No OpenCode CLI, no custom session pool image.
 
 ## Prerequisites
 
@@ -25,7 +28,7 @@ How to deploy from zero to a working demo: web app runs locally on your machine,
 - A [Terraform Cloud](https://app.terraform.io/) account (free tier)
 - A GitHub account with access to ghcr.io
 - An Azure subscription
-- An Azure OpenAI resource with a deployed model
+- An Azure OpenAI resource with a `gpt-4o-mini` deployment (or similar model with tool calling support)
 
 ## Step 1: Set Up the Local Web App
 
@@ -70,10 +73,10 @@ ngrok http 3001
 
 ## Step 3: Build and Push the Worker Image
 
-Push to `main` (or trigger manually from the **Actions** tab) to run the **Build and Push Images** workflow. It builds and pushes:
+The worker image is now a minimal Python container (no Node, no OpenCode). Push to `main` (or trigger manually from the **Actions** tab) to run the **Build and Push Images** workflow. It builds and pushes:
 
-- `ghcr.io/<owner>/demo-app:latest`
-- `ghcr.io/<owner>/demo-worker:latest`
+- `ghcr.io/<owner>/demo-app:latest` (backend)
+- `ghcr.io/<owner>/demo-worker:latest` (CAJ worker — Python only)
 
 Both images are tagged with `latest` and the commit SHA.
 
@@ -170,12 +173,12 @@ Go to your workspace **Settings > Variables** and add:
 | `project_name` | `sandbox-ai-demo` | No |
 | `azure_openai_endpoint` | `https://your-resource.openai.azure.com` | No |
 | `azure_openai_api_key` | Your Azure OpenAI key | Yes |
-| `azure_openai_deployment_name` | Your deployment name | No |
+| `azure_openai_deployment_name` | `gpt-4o-mini` | No |
 | `worker_image` | `ghcr.io/<your-github-username>/demo-worker:latest` | No |
 | `backend_image` | `ghcr.io/<your-github-username>/demo-app:latest` | No |
 | `backend_callback_url` | `https://a1b2c3d4.ngrok-free.app` (your ngrok URL) | No |
 
-Note: `backend_image` is required by Terraform but not used (web app runs locally). Set it to the worker image as a placeholder.
+Note: `worker_image` is only used by the CAJ job. The PythonLTS session pool uses Microsoft's built-in runtime (no custom image). `backend_image` is required by Terraform but not used when running locally.
 
 ## Step 7: Deploy Azure Infrastructure
 
@@ -191,14 +194,14 @@ These commands run **remotely on Terraform Cloud** — your local CLI triggers t
 
 This creates:
 
-| Resource | Name | Purpose |
-|----------|------|---------|
-| Resource Group | `rg-sandbox-ai-demo` | Contains everything |
-| Log Analytics | `sandbox-ai-demo-logs` | Container Apps logging |
-| Container Apps Environment | `sandbox-ai-demo-env` | Shared environment |
-| Container App Job | `sandbox-ai-demo-worker-job` | CAJ worker (manual trigger) |
-| Session Pool | `sandbox-ai-demo-session-pool` | Pre-warmed Dynamic Sessions |
-| Role Assignment | Session Executor | Backend identity can execute sessions |
+| Resource | Purpose |
+|----------|---------|
+| Resource Group | Contains everything |
+| Log Analytics | Container Apps logging |
+| Container Apps Environment | Shared environment for CAJ + session pool |
+| Container App Job | CAJ worker (manual trigger, receives CODE env var) |
+| PythonLTS Session Pool | Microsoft-managed Python runtime, pre-warmed, Hyper-V isolated |
+| Role Assignment | Backend identity can execute sessions |
 
 Note the outputs after apply:
 
@@ -229,8 +232,8 @@ CAJ_NAME="sandbox-ai-demo-worker-job"
 SESSION_POOL_ENDPOINT="<from terraform output session_pool_endpoint>"
 BACKEND_CALLBACK_URL="<your ngrok URL>"
 AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com"
-AZURE_OPENAI_API_KEY=""
-AZURE_OPENAI_DEPLOYMENT_NAME="your-deployment-name"
+AZURE_OPENAI_API_KEY="<your Azure OpenAI key>"
+AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4o-mini"
 ```
 
 ## Step 9: Run the Demo
@@ -244,9 +247,9 @@ bun run dev
 
 Test both modes:
 
-1. **Dynamic Session** — select "Dynamic Session" toggle, send a message. Should get a response in ~1-3s (sub-second container allocation + OpenCode processing).
+1. **Dynamic Session** — select "Dynamic Session" toggle, send a message like "Calculate the first 20 Fibonacci numbers". The backend calls Azure OpenAI, which generates Python code via the `execute_python` tool. The code runs in the PythonLTS session pool and you see the generated code, stdout output, and model's reply in the chat. Response time: ~2-5s.
 
-2. **Container App Job** — select "Container App Job" toggle, send a message. You'll see "Processing..." with a loading animation. The CAJ worker cold-starts (~10-30s), runs OpenCode, then POSTs the result back to your ngrok URL. The result appears in the chat.
+2. **Container App Job** — select "Container App Job" toggle, send a message. The backend generates Python code via Azure OpenAI, then dispatches it to a CAJ container. You'll see the generated code immediately, then "Processing..." with a loading animation. The CAJ worker cold-starts (~10-30s), runs the Python code, then POSTs stdout back to your ngrok URL. The result appears in the chat.
 
 ## Troubleshooting
 
@@ -254,6 +257,7 @@ Test both modes:
 
 - Check ngrok terminal — you should see `POST /api/worker/callback/<jobId>` requests
 - Verify `BACKEND_CALLBACK_URL` in `.env` matches the ngrok URL
+- The callback body is `{ "stdout": "..." }` — make sure the worker image is up to date
 - Verify the CAJ job's env vars include the correct callback URL:
   ```bash
   az containerapp job execution list \
@@ -264,14 +268,23 @@ Test both modes:
 
 ### Dynamic Session not responding
 
-- Verify the session pool has warm instances:
+- The session pool is PythonLTS (Microsoft-managed) — no custom image to debug
+- Verify the session pool exists and has warm instances:
   ```bash
   az containerapp sessionpool show \
-    --name sandbox-ai-demo-session-pool \
+    --name <session-pool-name> \
     --resource-group rg-sandbox-ai-demo \
     --query "properties.scaleConfiguration.readySessionInstances"
   ```
 - Check that the backend has the `Azure ContainerApps Session Executor` role on the session pool
+- Verify `SESSION_POOL_ENDPOINT` in `.env` matches the terraform output
+
+### Azure OpenAI not generating code
+
+- The system prompt forces tool use — the model should always call `execute_python`
+- Check that `AZURE_OPENAI_DEPLOYMENT_NAME` matches your deployed model name
+- Verify the model supports tool calling (gpt-4o-mini, gpt-4o, etc.)
+- Check backend logs for `Azure OpenAI error:` messages
 
 ### ngrok URL changed
 
