@@ -113,7 +113,7 @@ export function useChat() {
                     m.id === placeholderId
                       ? {
                           ...m,
-                          content: resultData.result ?? "No result",
+                          content: resultData.stdout ?? "No result",
                           status: "complete" as const,
                           elapsedMs: resultData.elapsedMs ?? undefined,
                         }

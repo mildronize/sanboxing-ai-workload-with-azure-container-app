@@ -13,12 +13,14 @@ interface TriggerCajJobParams {
 
 interface SendToSessionParams {
   sessionPoolEndpoint: string;
-  message: string;
-  sessionId?: string;
+  code: string;
+  conversationId: string;
 }
 
 interface SendToSessionResult {
-  response: string;
+  stdout: string;
+  stderr: string;
+  executionTimeInMilliseconds: number;
 }
 
 export async function triggerCajJob(params: TriggerCajJobParams): Promise<string> {
@@ -64,15 +66,27 @@ export async function triggerCajJob(params: TriggerCajJobParams): Promise<string
   return data.name ?? data.id ?? "unknown";
 }
 
+interface ExecutionResponse {
+  id: string;
+  identifier: string;
+  executionType: string;
+  status: string;
+  result: {
+    stdout: string;
+    stderr: string;
+    executionResult: unknown;
+    executionTimeInMilliseconds: number;
+  };
+}
+
 export async function sendToSession(params: SendToSessionParams): Promise<SendToSessionResult> {
-  const { sessionPoolEndpoint, message, sessionId } = params;
-  const resolvedSessionId = sessionId ?? `session-${Date.now()}`;
+  const { sessionPoolEndpoint, code, conversationId } = params;
 
   const credential = new DefaultAzureCredential();
   const tokenResponse = await credential.getToken("https://dynamicsessions.io/.default");
   const accessToken = tokenResponse.token;
 
-  const url = `https://${sessionPoolEndpoint}/chat?identifier=${resolvedSessionId}`;
+  const url = `${sessionPoolEndpoint}/executions?identifier=${encodeURIComponent(conversationId)}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -80,7 +94,7 @@ export async function sendToSession(params: SendToSessionParams): Promise<SendTo
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ code, timeoutInSeconds: 30, executionType: "synchronous" }),
   });
 
   if (!response.ok) {
@@ -88,6 +102,10 @@ export async function sendToSession(params: SendToSessionParams): Promise<SendTo
     throw new Error(`Dynamic session request failed: ${response.status} ${text}`);
   }
 
-  const data = (await response.json()) as { response?: string };
-  return { response: data.response ?? "" };
+  const data = (await response.json()) as ExecutionResponse;
+  return {
+    stdout: data.result.stdout ?? "",
+    stderr: data.result.stderr ?? "",
+    executionTimeInMilliseconds: data.result.executionTimeInMilliseconds ?? 0,
+  };
 }

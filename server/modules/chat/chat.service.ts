@@ -24,7 +24,7 @@ export class ChatService {
     this.logger = appContext.logger;
   }
 
-  async sendMessage(message: string, workerType: string): Promise<SendMessageResult> {
+  async sendMessage(message: string, workerType: string, conversationId?: string): Promise<SendMessageResult> {
     this.logger.info("ChatService.sendMessage", { workerType });
 
     // Store user message
@@ -37,7 +37,7 @@ export class ChatService {
     if (workerType === "caj") {
       return this.triggerCajJob(message);
     }
-    return this.sendToSession(message);
+    return this.sendToSession(message, conversationId ?? `session-${Date.now()}`);
   }
 
   private async triggerCajJob(message: string): Promise<SendMessageResult> {
@@ -88,7 +88,7 @@ export class ChatService {
     };
   }
 
-  private async sendToSession(message: string): Promise<SendMessageResult> {
+  private async sendToSession(message: string, conversationId: string): Promise<SendMessageResult> {
     this.logger.info("ChatService.sendToSession");
 
     const startTime = Date.now();
@@ -100,8 +100,8 @@ export class ChatService {
       response = `[Mock Session] Echo: "${message}"`;
     } else {
       const { sessionPoolEndpoint } = this.appContext.config.azure;
-      const result = await sendToSession({ sessionPoolEndpoint, message });
-      response = result.response;
+      const result = await sendToSession({ sessionPoolEndpoint, code: message, conversationId });
+      response = result.stdout;
     }
 
     const elapsedMs = Date.now() - startTime;
@@ -134,7 +134,7 @@ export class ChatService {
 
     await this.repo.updateWorkerResult(jobId, {
       status: "done",
-      result,
+      stdout: result,
       elapsedMs,
     });
   }

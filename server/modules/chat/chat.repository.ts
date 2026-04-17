@@ -5,12 +5,12 @@ import type { ILogger } from "#server/infrastructure/logging/index.ts";
 export type { ChatMessage, WorkerResult };
 
 export type CreateMessageData = Pick<ChatMessage, "role" | "content"> &
-  Partial<Pick<ChatMessage, "workerType" | "elapsedMs" | "jobId">>;
+  Partial<Pick<ChatMessage, "code" | "stdout" | "workerType" | "elapsedMs" | "jobId">>;
 
 export type CreateWorkerResultData = Pick<WorkerResult, "jobId"> &
-  Partial<Pick<WorkerResult, "status" | "result" | "elapsedMs">>;
+  Partial<Pick<WorkerResult, "status" | "stdout" | "elapsedMs">>;
 
-export type UpdateWorkerResultData = Partial<Pick<WorkerResult, "status" | "result" | "elapsedMs">>;
+export type UpdateWorkerResultData = Partial<Pick<WorkerResult, "status" | "stdout" | "elapsedMs">>;
 
 export interface IChatRepository {
   createMessage(data: CreateMessageData): Promise<ChatMessage>;

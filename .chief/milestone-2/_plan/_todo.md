@@ -2,9 +2,9 @@
 
 ## Batch 1: Foundation (Schema + Clients)
 
-- [ ] task-1: Prisma schema changes (add code/stdout to ChatMessage, rename WorkerResult.result to stdout)
-- [ ] task-2: Azure OpenAI client + execute_python tool definition
-- [ ] task-3: PythonLTS session execution client (rewrite sendToSession for /executions API)
+- [x] task-1: Prisma schema changes (add code/stdout to ChatMessage, rename WorkerResult.result to stdout)
+- [x] task-2: Azure OpenAI client + execute_python tool definition
+- [x] task-3: PythonLTS session execution client (rewrite sendToSession for /executions API)
 
 ## Batch 2: Backend Logic (Service + Routes)
 

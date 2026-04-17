@@ -33,7 +33,7 @@ export function createChatRoutes(container: ServiceContainer) {
         return {
           jobId: workerResult.jobId,
           status: workerResult.status,
-          result: workerResult.result,
+          stdout: workerResult.stdout,
           elapsedMs: workerResult.elapsedMs,
         };
       },
