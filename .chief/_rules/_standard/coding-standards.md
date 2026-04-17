@@ -36,11 +36,11 @@
 
 - Worker code lives in `worker/` directory at repo root
 - Separate from the main app -- has its own Dockerfile
-- Same image for both CAJ and Dynamic Session modes
-- `MODE` env var switches behavior (`job` vs `session`)
+- M1: Same image for both CAJ and Dynamic Session modes (`MODE` env var)
+- M2+: Worker container is CAJ-only (minimal Python). Session path uses PythonLTS (managed by Microsoft)
 
 ## Infrastructure
 
-- Terraform files in `infra/` directory at repo root
+- Terraform files in `terraform/` directory at repo root
 - GitHub Actions in `.github/workflows/`
 - Container images published to ghcr.io (public)

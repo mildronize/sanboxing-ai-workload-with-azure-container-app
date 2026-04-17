@@ -19,8 +19,8 @@ docker build -t demo-worker ./worker   # Docker build succeeds
 ## For Terraform Tasks
 
 ```bash
-cd infra && terraform validate          # Terraform validates
-cd infra && terraform fmt -check        # Formatting correct
+cd terraform && terraform validate       # Terraform validates
+cd terraform && terraform fmt -check    # Formatting correct
 ```
 
 ## For GitHub Actions Tasks
