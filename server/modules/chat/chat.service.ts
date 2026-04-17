@@ -88,11 +88,12 @@ export class ChatService {
         });
       }, 5000);
     } else {
-      const { subscriptionId, resourceGroup, cajName, backendCallbackUrl } = this.appContext.config.azure;
+      const { subscriptionId, resourceGroup, cajName, cajWorkerImage, backendCallbackUrl } = this.appContext.config.azure;
       await triggerCajJob({
         subscriptionId,
         resourceGroup,
         cajName,
+        cajWorkerImage,
         code,
         callbackUrl: `${backendCallbackUrl}/api/worker/callback/${jobId}`,
       });

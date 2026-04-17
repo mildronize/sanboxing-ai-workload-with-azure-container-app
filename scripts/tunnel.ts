@@ -1,6 +1,6 @@
 /**
  * Start ngrok tunnel and update:
- * 1. Azure Container App backend env var (BACKEND_CALLBACK_URL)
+ * 1. .env file (BACKEND_CALLBACK_URL)
  * 2. terraform/tfc-vars.env (backend_callback_url)
  *
  * Usage:
@@ -8,8 +8,6 @@
  *
  * Requires:
  *   - ngrok installed
- *   - az CLI logged in
- *   - AZURE_RESOURCE_GROUP and AZURE_CONTAINER_APP_NAME env vars (or defaults)
  */
 
 import { $ } from "bun";
@@ -25,8 +23,7 @@ const config = {
   logPath: "./.logs/ngrok.log",
   healthCheckUrl: "http://localhost:3001/api/health",
   healthCheckInterval: 1000,
-  resourceGroup: process.env.AZURE_RESOURCE_GROUP ?? "rg-sandbox-ai-demo",
-  containerAppName: process.env.AZURE_CONTAINER_APP_NAME ?? "sandbox-ai-demo-backend",
+  envPath: ".env",
   tfcVarsPath: "terraform/tfc-vars.env",
 };
 
@@ -69,27 +66,42 @@ async function getTunnelUrl(): Promise<string> {
   const tunnelApiUrl = `http://localhost:${config.ngrokPort}/api/tunnels`;
   await waitUntilReady(tunnelApiUrl, "ngrok API");
 
-  const res = await fetch(tunnelApiUrl);
-  const data = tunnelSchema.parse(await res.json());
-
-  if (data.tunnels.length === 0) {
-    throw new Error("No ngrok tunnels found");
+  // Poll until a tunnel is registered (API may be ready before tunnels are)
+  while (true) {
+    const res = await fetch(tunnelApiUrl);
+    const data = tunnelSchema.parse(await res.json());
+    if (data.tunnels.length > 0) {
+      return data.tunnels[0].public_url;
+    }
+    await new Promise((r) => setTimeout(r, config.healthCheckInterval));
   }
-
-  return data.tunnels[0].public_url;
 }
 
-async function updateContainerAppEnv(tunnelUrl: string) {
-  console.log(`Updating Container App "${config.containerAppName}" BACKEND_CALLBACK_URL...`);
-  try {
-    await $`az containerapp update \
-      --name ${config.containerAppName} \
-      --resource-group ${config.resourceGroup} \
-      --set-env-vars BACKEND_CALLBACK_URL=${tunnelUrl}`.quiet();
-    console.log(`Container App updated: BACKEND_CALLBACK_URL=${tunnelUrl}`);
-  } catch (error) {
-    console.error(`Failed to update Container App (may not exist if running local-only):`, error);
+function updateEnvFile(tunnelUrl: string) {
+  const filePath = config.envPath;
+  if (!existsSync(filePath)) {
+    console.warn(`${filePath} not found, skipping`);
+    return;
   }
+
+  const content = readFileSync(filePath, "utf-8");
+  const lines = content.split("\n");
+  let found = false;
+
+  const updated = lines.map((line) => {
+    if (line.startsWith("BACKEND_CALLBACK_URL=")) {
+      found = true;
+      return `BACKEND_CALLBACK_URL="${tunnelUrl}"`;
+    }
+    return line;
+  });
+
+  if (!found) {
+    updated.push(`BACKEND_CALLBACK_URL="${tunnelUrl}"`);
+  }
+
+  writeFileSync(filePath, updated.join("\n"));
+  console.log(`Updated ${filePath}: BACKEND_CALLBACK_URL=${tunnelUrl}`);
 }
 
 function updateTfcVarsEnv(tunnelUrl: string) {
@@ -149,8 +161,8 @@ async function main() {
   const tunnelUrl = await getTunnelUrl();
   console.log(`\nNgrok tunnel URL: ${tunnelUrl}\n`);
 
-  // Update Azure Container App and tfc-vars.env
-  await updateContainerAppEnv(tunnelUrl);
+  // Update .env and tfc-vars.env
+  updateEnvFile(tunnelUrl);
   updateTfcVarsEnv(tunnelUrl);
 
   // Check if backend is running

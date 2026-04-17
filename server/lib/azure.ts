@@ -1,9 +1,11 @@
 import { DefaultAzureCredential } from "@azure/identity";
+import { ContainerAppsAPIClient } from "@azure/arm-appcontainers";
 
 interface TriggerCajJobParams {
   subscriptionId: string;
   resourceGroup: string;
   cajName: string;
+  cajWorkerImage: string;
   code: string;
   callbackUrl: string;
 }
@@ -21,18 +23,17 @@ interface SendToSessionResult {
 }
 
 export async function triggerCajJob(params: TriggerCajJobParams): Promise<string> {
-  const { subscriptionId, resourceGroup, cajName, code, callbackUrl } = params;
+  const { subscriptionId, resourceGroup, cajName, cajWorkerImage, code, callbackUrl } = params;
 
   const credential = new DefaultAzureCredential();
-  const tokenResponse = await credential.getToken("https://management.azure.com/.default");
-  const accessToken = tokenResponse.token;
+  const client = new ContainerAppsAPIClient(credential, subscriptionId);
 
-  const url = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.App/jobs/${cajName}/start?api-version=2024-03-01`;
-
-  const body = {
-    properties: {
+  const result = await client.jobs.beginStartAndWait(resourceGroup, cajName, {
+    template: {
       containers: [
         {
+          name: "worker",
+          image: cajWorkerImage,
           env: [
             { name: "CODE", value: code },
             { name: "CALLBACK_URL", value: callbackUrl },
@@ -40,24 +41,9 @@ export async function triggerCajJob(params: TriggerCajJobParams): Promise<string
         },
       ],
     },
-  };
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`CAJ job trigger failed: ${response.status} ${text}`);
-  }
-
-  const data = (await response.json()) as { name?: string; id?: string };
-  return data.name ?? data.id ?? "unknown";
+  return result.name ?? "unknown";
 }
 
 interface ExecutionResponse {
@@ -80,7 +66,7 @@ export async function sendToSession(params: SendToSessionParams): Promise<SendTo
   const tokenResponse = await credential.getToken("https://dynamicsessions.io/.default");
   const accessToken = tokenResponse.token;
 
-  const url = `${sessionPoolEndpoint}/executions?identifier=${encodeURIComponent(conversationId)}`;
+  const url = `${sessionPoolEndpoint}/executions?api-version=2024-10-02-preview&identifier=${encodeURIComponent(conversationId)}`;
 
   const response = await fetch(url, {
     method: "POST",
@@ -88,7 +74,7 @@ export async function sendToSession(params: SendToSessionParams): Promise<SendTo
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ code, timeoutInSeconds: 30, executionType: "synchronous" }),
+    body: JSON.stringify({ code, codeInputType: "inline", timeoutInSeconds: 30, executionType: "synchronous" }),
   });
 
   if (!response.ok) {

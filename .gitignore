@@ -27,4 +27,5 @@ terraform/out.txt
 terraform/tfplan
 
 ref/lumebot
+ref/
 .logs

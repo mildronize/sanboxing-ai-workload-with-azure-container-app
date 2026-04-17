@@ -11,6 +11,7 @@ export interface AppConfig {
     subscriptionId: string
     resourceGroup: string
     cajName: string
+    cajWorkerImage: string
     sessionPoolEndpoint: string
     backendCallbackUrl: string
     azureOpenaiEndpoint: string
@@ -40,6 +41,7 @@ export function createContainer(): ServiceContainer {
       subscriptionId: process.env['AZURE_SUBSCRIPTION_ID'] ?? '',
       resourceGroup: process.env['AZURE_RESOURCE_GROUP'] ?? '',
       cajName: process.env['CAJ_NAME'] ?? '',
+      cajWorkerImage: process.env['CAJ_WORKER_IMAGE'] ?? '',
       sessionPoolEndpoint: process.env['SESSION_POOL_ENDPOINT'] ?? '',
       backendCallbackUrl: process.env['BACKEND_CALLBACK_URL'] ?? '',
       azureOpenaiEndpoint: process.env['AZURE_OPENAI_ENDPOINT'] ?? '',

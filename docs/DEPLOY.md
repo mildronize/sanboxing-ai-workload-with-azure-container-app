@@ -59,7 +59,7 @@ bun run scripts/tunnel.ts
 ```
 
 This starts ngrok on port 3001 and automatically:
-1. Updates the Azure Container App's `BACKEND_CALLBACK_URL` env var
+1. Updates `.env` with `BACKEND_CALLBACK_URL`
 2. Updates `terraform/tfc-vars.env` with the new ngrok URL
 
 The tunnel URL changes every restart (free tier), so keep this terminal open throughout. If you restart ngrok, just re-run the script — it handles the updates automatically.
@@ -207,8 +207,22 @@ Note the outputs after apply:
 
 ```bash
 terraform output session_pool_endpoint
-# Use this for SESSION_POOL_ENDPOINT in your .env
 ```
+
+Copy the output value — you'll need it for `SESSION_POOL_ENDPOINT` in the next step.
+
+### Assign Session Executor role for local development
+
+When running the backend locally, `DefaultAzureCredential` uses your `az login` identity. Your user account needs the `Azure ContainerApps Session Executor` role on the session pool to call the `/executions` API:
+
+```bash
+az role assignment create \
+  --role "Azure ContainerApps Session Executor" \
+  --assignee "$(az ad signed-in-user show --query id -o tsv)" \
+  --scope "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/rg-sandbox-ai-demo/providers/Microsoft.App/sessionPools/sandboxaidemosessionpool"
+```
+
+Note: The Terraform `role_assignment` resource assigns this role to the **backend Container App's managed identity** (for production). This manual step is only needed for **local development** where your own Azure identity is used.
 
 ## Step 8: Configure the Local Web App for Azure
 
@@ -245,11 +259,46 @@ bun run dev
 # Open http://localhost:3000/chat
 ```
 
-Test both modes:
+### Using Dynamic Session Mode
 
-1. **Dynamic Session** — select "Dynamic Session" toggle, send a message like "Calculate the first 20 Fibonacci numbers". The backend calls Azure OpenAI, which generates Python code via the `execute_python` tool. The code runs in the PythonLTS session pool and you see the generated code, stdout output, and model's reply in the chat. Response time: ~2-5s.
+1. Click the **"Dynamic Session"** toggle in the chat header (this is the default)
+2. Type a message that requires computation, for example:
+   - `"Calculate the first 20 Fibonacci numbers"`
+   - `"Generate a multiplication table from 1 to 10"`
+   - `"What is the sum of all prime numbers under 100?"`
+3. The backend calls Azure OpenAI → model generates Python code → code executes in a PythonLTS session → result returns
+4. In the chat you'll see three blocks:
+   - **PYTHON** — the generated code
+   - **OUTPUT** — stdout from execution
+   - **Reply** — the model's formatted explanation
+5. Response time: ~2-5s (pre-warmed session, no cold start)
+6. Session state persists — variables from previous messages carry over. Try:
+   - First message: `"Set x = 42"`
+   - Second message: `"Print x * 2"` — it remembers `x` from the previous execution
 
-2. **Container App Job** — select "Container App Job" toggle, send a message. The backend generates Python code via Azure OpenAI, then dispatches it to a CAJ container. You'll see the generated code immediately, then "Processing..." with a loading animation. The CAJ worker cold-starts (~10-30s), runs the Python code, then POSTs stdout back to your ngrok URL. The result appears in the chat.
+### Using Container App Job Mode
+
+1. Click the **"Container App Job"** toggle in the chat header
+2. Type a message, for example: `"Generate a report of squares from 1 to 20"`
+3. The backend calls Azure OpenAI → model generates Python code → you see the code immediately in chat
+4. A "Processing..." animation appears — the CAJ container is cold-starting (~10-30s)
+5. Behind the scenes:
+   - Azure spins up a new container with your Python code as the `CODE` env var
+   - The container runs the code, captures stdout
+   - The container POSTs `{ "stdout": "..." }` back to your ngrok URL
+   - The container is destroyed after completion
+6. When the result arrives, it replaces the "Processing..." message with the stdout output
+7. You can switch back to Dynamic Session while waiting — the CAJ result will pop in when ready
+
+### Key Differences to Observe
+
+| What to watch | Dynamic Session | Container App Job |
+|---------------|-----------------|-------------------|
+| Response time | ~2-5 seconds | ~15-30 seconds (cold start) |
+| Code block | Appears with result | Appears immediately |
+| Output block | Appears with result | Appears when job completes |
+| Status badge | `⚡ Dynamic Session` | `⏳ CAJ` with elapsed time |
+| Session state | Persists across messages | Each job is isolated |
 
 ## Troubleshooting
 
