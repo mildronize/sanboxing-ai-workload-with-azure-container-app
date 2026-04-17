@@ -20,4 +20,4 @@
 
 ## Batch 4: Verification
 
-- [ ] task-11: End-to-end type check + build verification
+- [x] task-11: End-to-end type check + build verification
