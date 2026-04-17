@@ -5,7 +5,7 @@ output "backend_url" {
 
 output "session_pool_endpoint" {
   description = "Session pool management endpoint used by the backend."
-  value       = "https://${var.location}.dynamicsessions.io/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/sessionPools/${var.project_name}-session-pool"
+  value       = "https://${var.location}.dynamicsessions.io/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/sessionPools/${local.session_pool_name}"
 }
 
 output "resource_group_name" {

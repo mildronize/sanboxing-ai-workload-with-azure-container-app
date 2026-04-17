@@ -14,9 +14,9 @@
 
 ## Batch 3: Frontend + Worker + Terraform
 
-- [ ] task-7: Frontend -- code + stdout display blocks, conversationId
-- [ ] task-8: CAJ worker container rewrite (minimal Python, CAJ-only)
-- [ ] task-9: Terraform -- PythonLTS session pool + CAJ env var cleanup
+- [x] task-7: Frontend -- code + stdout display blocks, conversationId
+- [x] task-8: CAJ worker container rewrite (minimal Python, CAJ-only)
+- [x] task-9: Terraform -- PythonLTS session pool + CAJ env var cleanup
 
 ## Batch 4: Verification
 

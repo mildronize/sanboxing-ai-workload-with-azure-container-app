@@ -74,7 +74,7 @@ resource "azurerm_container_app" "backend" {
 
       env {
         name  = "SESSION_POOL_ENDPOINT"
-        value = "https://${var.location}.dynamicsessions.io/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/sessionPools/${var.project_name}-session-pool"
+        value = "https://${var.location}.dynamicsessions.io/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/sessionPools/${local.session_pool_name}"
       }
 
       # Self-referencing FQDN: known after first apply.
@@ -156,28 +156,8 @@ resource "azurerm_container_app_job" "worker" {
         value = "job"
       }
 
-      env {
-        name  = "AZURE_OPENAI_ENDPOINT"
-        value = var.azure_openai_endpoint
-      }
-
-      env {
-        name        = "AZURE_OPENAI_API_KEY"
-        secret_name = "azure-openai-api-key"
-      }
-
-      env {
-        name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
-        value = var.azure_openai_deployment_name
-      }
-
-      # MESSAGE and CALLBACK_URL are injected at trigger time — not defined here.
+      # CODE and CALLBACK_URL are injected at trigger time via REST API — not defined here.
     }
-  }
-
-  secret {
-    name  = "azure-openai-api-key"
-    value = var.azure_openai_api_key
   }
 
   tags = {

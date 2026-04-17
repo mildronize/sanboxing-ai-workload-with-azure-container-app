@@ -12,6 +12,8 @@ interface ChatMessage {
   status: "complete" | "running" | "incomplete";
   workerType?: string;
   elapsedMs?: number;
+  code?: string;
+  stdout?: string;
 }
 
 function convertMessage(msg: ChatMessage): ThreadMessageLike {
@@ -73,10 +75,12 @@ export function useChat() {
           const assistantMsg: ChatMessage = {
             id: `assistant-${Date.now()}`,
             role: "assistant",
-            content: data.reply ?? data.stdout ?? "",
+            content: data.reply ?? "",
             status: "complete",
             workerType: "session",
             elapsedMs: data.elapsedMs ?? undefined,
+            code: data.code ?? undefined,
+            stdout: data.stdout ?? undefined,
           };
           setMessages((prev) => [...prev, assistantMsg]);
         } else {
@@ -90,6 +94,9 @@ export function useChat() {
           const jobId = data.jobId;
           if (!jobId) throw new Error("No jobId returned");
 
+          // Capture code returned from the CAJ trigger response
+          const cajCode = data.code ?? undefined;
+
           // Add placeholder assistant message
           const placeholderId = `assistant-caj-${Date.now()}`;
           const placeholderMsg: ChatMessage = {
@@ -98,6 +105,7 @@ export function useChat() {
             content: "Processing...",
             status: "running",
             workerType: "caj",
+            code: cajCode,
           };
           setMessages((prev) => [...prev, placeholderMsg]);
 
@@ -115,9 +123,10 @@ export function useChat() {
                     m.id === placeholderId
                       ? {
                           ...m,
-                          content: resultData.stdout ?? "No result",
+                          content: "",
                           status: "complete" as const,
                           elapsedMs: resultData.elapsedMs ?? undefined,
+                          stdout: resultData.stdout ?? undefined,
                         }
                       : m,
                   ),

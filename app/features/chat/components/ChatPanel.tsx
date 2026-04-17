@@ -11,11 +11,13 @@ import { SendHorizontalIcon } from "lucide-react";
 import { useChat, type WorkerMode } from "../hooks/useChat";
 import { StatusBadge } from "./StatusBadge";
 
-// Context to share message metadata (workerType, elapsedMs, status) with ChatMessage
+// Context to share message metadata (workerType, elapsedMs, status, code, stdout) with ChatMessage
 interface MessageMeta {
   workerType?: string;
   elapsedMs?: number;
   status?: "complete" | "running" | "incomplete";
+  code?: string;
+  stdout?: string;
 }
 
 const MessageMetaContext = createContext<Map<number, MessageMeta>>(new Map());
@@ -54,6 +56,36 @@ function WorkerModeToggle({
   );
 }
 
+function CodeBlock({ code }: { code: string }) {
+  return (
+    <div className="mt-3 w-full overflow-hidden rounded-lg border border-[var(--line)]">
+      <div className="flex items-center gap-2 border-b border-[var(--line)] bg-[var(--surface-strong)] px-4 py-1.5">
+        <span className="text-xs font-semibold tracking-widest text-[var(--sea-ink-soft)] uppercase">
+          Python
+        </span>
+      </div>
+      <pre className="overflow-x-auto bg-[#1a1a2e] p-4 text-sm leading-relaxed text-[#e2e8f0]">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+function StdoutBlock({ stdout }: { stdout: string }) {
+  return (
+    <div className="mt-2 w-full overflow-hidden rounded-lg border border-emerald-700/40">
+      <div className="flex items-center gap-2 border-b border-emerald-700/40 bg-emerald-950/40 px-4 py-1.5">
+        <span className="text-xs font-semibold tracking-widest text-emerald-400 uppercase">
+          Output
+        </span>
+      </div>
+      <pre className="overflow-x-auto bg-[#0d1a12] p-4 text-sm leading-relaxed text-emerald-300">
+        <code>{stdout}</code>
+      </pre>
+    </div>
+  );
+}
+
 function ChatMessage() {
   const messageIndex = useAuiState((s) => s.message.index);
   const metaMap = useContext(MessageMetaContext);
@@ -72,7 +104,7 @@ function ChatMessage() {
       </MessagePrimitive.If>
       <MessagePrimitive.If assistant>
         <div className="flex flex-col items-start gap-2">
-          <div className="max-w-[80%] rounded-2xl rounded-bl-sm border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-lg text-[var(--sea-ink)]">
+          <div className="w-full max-w-[90%] rounded-2xl rounded-bl-sm border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-lg text-[var(--sea-ink)]">
             {isPending ? (
               <div className="flex items-center gap-3 text-[var(--sea-ink-soft)]">
                 <span className="text-base">Processing</span>
@@ -83,7 +115,14 @@ function ChatMessage() {
                 </span>
               </div>
             ) : (
-              <MessagePrimitive.Content />
+              <>
+                {/* Reply text (model's explanation) always rendered first when present */}
+                <MessagePrimitive.Content />
+                {/* Code block: generated Python code */}
+                {meta?.code && <CodeBlock code={meta.code} />}
+                {/* Stdout block: execution output */}
+                {meta?.stdout && <StdoutBlock stdout={meta.stdout} />}
+              </>
             )}
             <ActionBarPrimitive.Root className="mt-2 flex items-center gap-2">
               <ActionBarPrimitive.Copy className="text-sm text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]" />
@@ -131,6 +170,8 @@ export function ChatPanel() {
         workerType: msg.workerType,
         elapsedMs: msg.elapsedMs,
         status: msg.status,
+        code: msg.code,
+        stdout: msg.stdout,
       });
     }
   });
