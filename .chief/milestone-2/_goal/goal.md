@@ -1,231 +1,182 @@
-# Design Spec: Sandbox AI Workload Demo App (v4)
+# Milestone 2: Replace OpenCode with Azure OpenAI SDK + PythonLTS
 
-## Core Message
+## Motivation
 
-Azure Container Apps แก้ 3 ปัญหาหลักของการรัน AI-generated code:
+Milestone 1 ใช้ OpenCode CLI ใน CustomContainer session pool — ต้อง build image ใหญ่, cold start ช้า, cost สูง. Milestone 2 เปลี่ยนเป็น Azure OpenAI SDK (tool calling) ใน backend + PythonLTS session pool ที่ Microsoft manage ให้.
 
-1. **Security** — Hyper-V isolated per session, code ไม่แตะ production infra
-2. **Cost** — $0.03/session-hour, consumption-based, scale to zero
-3. **Infra management** — Microsoft จัดการ pool, scaling, lifecycle ทั้งหมด
+## What Changes
 
-## What We're Building
+| Area | M1 (current) | M2 (target) |
+|------|-------------|-------------|
+| LLM integration | OpenCode CLI binary in worker | Azure OpenAI SDK in backend (gpt-4o-mini) |
+| Code generation | OpenCode generates + runs code | Backend calls Azure OpenAI with `execute_python` tool |
+| Session Pool type | CustomContainer (custom image) | PythonLTS (built-in, no image) |
+| Session Pool API | Custom protocol | `/executions` endpoint (Microsoft API) |
+| CAJ worker image | Node + OpenCode | Minimal Python (stdlib only) |
+| OpenAI auth | API key via OpenCode | API key in backend (`AzureOpenAI` SDK) |
+| Agent loop | None (OpenCode handled it) | Backend runs up to 5 iterations with self-correction |
 
-Chat UI demo สำหรับ Azure Global: _"Sandboxing AI Workloads on Azure Container Apps"_
+## What Stays the Same
 
-```
-Chat UI → Backend API (Bun + Azure OpenAI gpt-4o-mini)
-               ├── CAJ Worker          (long-running, cold start, destroyed after done)
-               └── Code Interpreter    (PythonLTS, Hyper-V isolated, $0.03/session-hr)
-                   Session Pool
-```
+- Frontend: assistant-ui + `ExternalStoreRuntime` + worker toggle + polling
+- Backend framework: Elysia, factory DI, Prisma, module structure
+- Auth: Better Auth
+- CI/CD: GitHub Actions
+- Route structure: `POST /api/chat`, callback, polling
 
-> **Note:** ใช้ `gpt-4o-mini` (Azure OpenAI deployment name `gpt-4o-mini`) — ไม่ใช่ OpenCode CLI อีกต่อไป Backend เรียก Azure OpenAI SDK โดยตรง
+---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────┐
-│  React Chat UI                  │
-│  assistant-ui + Vite            │
-└──────────┬──────────────────────┘
-           │ HTTP
-           ▼
-┌──────────────────────────────────────┐
-│  Backend API (Bun + Hono)            │
-│  Azure OpenAI gpt-4o-mini            │
-│  1. Receive user message             │
-│  2. Call Azure OpenAI (tool calling) │
-│  3. Model generates Python code      │
-│  4. POST code → Session Pool         │
-│  5. Return result + stdout to UI     │
-└──────┬───────────────┬───────────────┘
-       │               │
-       ▼               ▼
-┌────────────┐  ┌───────────────────────────┐
-│ CAJ Worker │  │ Code Interpreter          │
-│            │  │ Session Pool (PythonLTS)  │
-│ long task  │  │                           │
-│ cold start │  │ POST /executions          │
-│ ~10–30s    │  │   ?identifier=<conv-id>   │
-│ destroyed  │  │ { code: "..." }           │
-│ after done │  │                           │
-│            │  │ Jupyter kernel inside     │
-│            │  │ Hyper-V isolated          │
-│            │  │ numpy/pandas preloaded    │
-│            │  │ instant start (pre-warm)  │
-│            │  │ $0.03/session-hour        │
-└────────────┘  └───────────────────────────┘
+User --> Frontend --> POST /api/chat --> Backend (Elysia)
+                                          |
+                                          +-- Call Azure OpenAI (API key, gpt-4o-mini)
+                                          +-- Model returns execute_python tool call
+                                          +-- Extract Python code
+                                          |
+                                          +-- worker=session:
+                                          |     POST code --> PythonLTS /executions --> stdout back
+                                          |     (agent loop: up to 5 iterations, model can self-correct)
+                                          |
+                                          +-- worker=caj:
+                                                One OpenAI call --> extract code --> trigger CAJ job
+                                                (pass CODE as env var --> container runs it --> POSTs stdout back)
 ```
 
-## Backend: Azure OpenAI Integration (Bun)
+Both paths: Backend generates Python via Azure OpenAI. Difference is only **where** code executes.
 
-ใช้ Azure OpenAI SDK พร้อม tool calling — model decide เองว่าจะ generate Python code หรือตอบ text ตรงๆ
+---
+
+## Key Decisions
+
+### 1. Azure OpenAI Integration
+
+- SDK: `openai` package, `AzureOpenAI` client class
+- Auth: API key (not Managed Identity) -- already wired in Terraform
+- Model: `gpt-4o-mini` deployment
+- Stateless: ไม่ส่ง conversation history ไป Azure OpenAI -- แต่ละ message standalone
 
 ```typescript
 import { AzureOpenAI } from "openai";
-import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
-
-const credential = new DefaultAzureCredential();
-const azureADTokenProvider = getBearerTokenProvider(
-  credential,
-  "https://cognitiveservices.azure.com/.default"
-);
 
 const client = new AzureOpenAI({
-  azureADTokenProvider,
+  apiKey: process.env.AZURE_OPENAI_API_KEY,
   endpoint: process.env.AZURE_OPENAI_ENDPOINT,
   apiVersion: "2025-01-01-preview",
   deployment: "gpt-4o-mini",
 });
+```
 
-// Tool definition — model calls this when it wants to run code
-const tools = [
-  {
-    type: "function" as const,
-    function: {
-      name: "execute_python",
-      description: "Execute Python code in a secure sandbox and return stdout",
-      parameters: {
-        type: "object",
-        properties: {
-          code: { type: "string", description: "Python code to execute" },
-        },
-        required: ["code"],
+### 2. Tool Definition
+
+Model เรียก `execute_python` tool เมื่อต้องการ run code:
+
+```typescript
+const tools = [{
+  type: "function" as const,
+  function: {
+    name: "execute_python",
+    description: "Execute Python code in a secure sandbox and return stdout",
+    parameters: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "Python code to execute" },
       },
+      required: ["code"],
     },
   },
-];
+}];
 ```
 
-## Backend: Dynamic Session Call (Bun)
+### 3. System Prompt
+
+Aggressive prompt forcing tool use -- stored as config constant ไม่ hardcode ใน route handler.
+
+### 4. Agent Loop (Session Path)
+
+- Up to 5 iterations with self-correction
+- Synchronous response, no streaming
+- ถ้า model execute code แล้ว stderr กลับมา, ส่ง stderr กลับให้ model แก้
+- หลัง 5 iterations ถ้ายัง fail: return last code + stderr + model's explanation
+- Fail gracefully -- ไม่ throw error ไปหา frontend
+
+### 5. Session Pool: PythonLTS
+
+- Terraform เปลี่ยน `container_type` จาก `CustomContainer` เป็น `PythonLTS`
+- ไม่มี custom image, ไม่มี Dockerfile, ไม่มี registry
+- ใช้ built-in `/executions` API endpoint
+- Reference: `ref/container-apps-dynamic-sessions-samples/`
 
 ```typescript
-async function executeInSession(code: string, conversationId: string) {
-  // Get token for dynamic sessions
-  const tokenResponse = await credential.getToken(
-    "https://dynamicsessions.io/.default"
-  );
-
-  const res = await fetch(
-    `${process.env.POOL_ENDPOINT}/executions?identifier=${conversationId}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenResponse.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        code,
-        timeoutInSeconds: 30,
-        executionType: "synchronous",
-      }),
-    }
-  );
-
-  const data = await res.json();
-  return {
-    stdout: data.result.stdout,
-    stderr: data.result.stderr,
-    elapsedMs: data.result.executionTimeInMilliseconds,
-  };
-}
+// POST ${POOL_ENDPOINT}/executions?identifier=${conversationId}
+// Body: { code, timeoutInSeconds: 30, executionType: "synchronous" }
+// Response: { result: { stdout, stderr, executionTimeInMilliseconds } }
 ```
 
-## Backend: Agent Loop (Bun)
+### 6. Session Affinity (conversationId)
 
-```typescript
-app.post("/api/chat", async (c) => {
-  const { message, conversationId, worker } = await c.req.json();
+- Frontend generates `conversationId` (UUID) on mount, sent with every request
+- Used as `identifier` in PythonLTS `/executions` -- same kernel across messages
+- ไม่ใช้กับ CAJ
 
-  if (worker === "caj") {
-    // Trigger CAJ job — return jobId immediately
-    const jobId = await triggerCAJJob(message);
-    return c.json({ jobId, status: "started" });
-  }
+### 7. CAJ Worker (Simplified)
 
-  // Dynamic Session path — agentic loop
-  const messages = [
-    {
-      role: "system",
-      content: "You are a helpful assistant. When asked to analyze data or perform calculations, write Python code and use the execute_python tool.",
-    },
-    { role: "user", content: message },
-  ];
+- Minimal Python container, **zero external dependencies** (stdlib only)
+- Receives `CODE` env var, runs it with `python`
+- Captures stdout, POSTs back to `CALLBACK_URL` via `urllib`
+- ไม่มี OpenCode, ไม่มี Node, ไม่มี npm
 
-  let response = await client.chat.completions.create({ model: "gpt-4o-mini", messages, tools });
+### 8. CAJ Trigger
 
-  // Handle tool call if model wants to run code
-  if (response.choices[0].finish_reason === "tool_calls") {
-    const toolCall = response.choices[0].message.tool_calls![0];
-    const { code } = JSON.parse(toolCall.function.arguments);
+- Backend makes **one** Azure OpenAI call to generate code
+- Dispatches code as `CODE` env var via existing Azure REST API trigger
+- ไม่มี agent loop สำหรับ CAJ -- fire and forget
 
-    const result = await executeInSession(code, conversationId);
+### 9. API Response Shape
 
-    // Second pass — model formats the result
-    messages.push(response.choices[0].message);
-    messages.push({
-      role: "tool",
-      tool_call_id: toolCall.id,
-      content: result.stdout,
-    });
-
-    response = await client.chat.completions.create({ model: "gpt-4o-mini", messages });
-  }
-
-  return c.json({
-    reply: response.choices[0].message.content,
-    worker: "dynamic-session",
-    elapsedMs: /* from session result */,
-  });
-});
+Session path (synchronous):
+```json
+{ "reply": "...", "code": "...", "stdout": "...", "workerType": "session", "elapsedMs": 180 }
 ```
 
-## Session Pool Config
-
-```bash
-az containerapp sessionpool create \
-  --name demo-session-pool \
-  --container-type PythonLTS \
-  --max-sessions 100 \
-  --cooldown-period 300
+CAJ trigger (immediate):
+```json
+{ "jobId": "...", "code": "...", "status": "started", "workerType": "caj" }
 ```
 
-ไม่มี custom image, ไม่มี Dockerfile, ไม่มี registry
-
-## Demo Flow (25 min)
-
-**Minute 0** — Presenter พิมพ์ _"Analyze Azure Container Apps adoption and write a report"_ → trigger **CAJ** (cold start ~15-30s ตั้งใจให้ช้า)
-
-**Minutes 1–12** — Architecture slides ขณะ CAJ รัน background
-
-**Minutes 12–20** — Live chat ผ่าน **Code Interpreter Session** — gpt-4o-mini เรียก `execute_python` tool → Bun POST `/executions` → stdout กลับมาใน milliseconds
-
-**Minute ~18** — CAJ result pop เข้า chat
-
-**Minutes 20–25** — Decision matrix, Q&A
-
-## UI Badge
-
-```
-⚡ Dynamic Session | 180ms | Hyper-V | $0.03/hr
-⏳ CAJ             | cold start: 18s | destroyed after
+CAJ poll:
+```json
+{ "jobId": "...", "status": "completed", "stdout": "...", "elapsedMs": 18000 }
 ```
 
-## Azure Resources
+### 10. Prisma Schema Changes
 
-| Resource                                  | Purpose                             |
-| ----------------------------------------- | ----------------------------------- |
-| Container Apps Environment                | Hosts CAJ + Session Pool            |
-| Container Apps Job (manual trigger)       | Long-running task demo              |
-| Code Interpreter Session Pool (PythonLTS) | Sandboxed Python via Jupyter kernel |
-| Azure OpenAI (gpt-4o-mini)                | LLM + tool calling in backend       |
-| Container Registry                        | CAJ worker image เท่านั้น              |
+- Add nullable `code: String?` to `ChatMessage`
+- Add nullable `stdout: String?` to `ChatMessage`
+- `WorkerResult.result` field rename to `stdout`
 
-## เปลี่ยนจาก v3
+### 11. Frontend Changes
 
-|                 | v3                     | v4                                          |
-| --------------- | ---------------------- | ------------------------------------------- |
-| LLM             | GPT-5.4 (OpenCode CLI) | Azure OpenAI gpt-4o-mini (SDK)              |
-| Code generation | OpenCode CLI binary    | Azure OpenAI tool calling                   |
-| Auth to OpenAI  | API key                | `DefaultAzureCredential` (Managed Identity) |
-| CAJ image       | Node + OpenCode        | Python หรือ Node minimal (ไม่ต้องมี OpenCode)   |
+- Render generated Python code + stdout as separate blocks
+- No intermediate step indicators for session path (synchronous)
+- CAJ path: show "started" status, poll for result (existing pattern)
+
+### 12. Mock Mode
+
+- Keep `useMockWorkers` for local dev
+- Mock skips Azure OpenAI + PythonLTS + CAJ trigger
+- Return fake code + stdout
+
+---
+
+## Success Criteria
+
+1. `POST /api/chat?worker=session` calls Azure OpenAI, gets Python code via tool calling, executes in PythonLTS, returns code + stdout
+2. Agent loop self-corrects up to 5 times when code fails
+3. `POST /api/chat?worker=caj` generates code, triggers CAJ job with `CODE` env var, returns jobId
+4. CAJ worker runs Python code, POSTs stdout back to callback
+5. Frontend shows code + stdout blocks for both paths
+6. Terraform deploys PythonLTS session pool (no custom image)
+7. Mock mode works for local dev without Azure resources
+8. All existing M1 functionality (auth, polling, UI) continues to work
