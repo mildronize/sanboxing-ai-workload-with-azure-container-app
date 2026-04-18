@@ -75,9 +75,9 @@ function CodeBlock({ code }: { code: string }) {
 
 function StdoutBlock({ stdout }: { stdout: string }) {
   return (
-    <div className="mt-2 w-full overflow-hidden rounded-lg border border-emerald-700/40">
-      <div className="flex items-center gap-2 border-b border-emerald-700/40 bg-emerald-950/40 px-4 py-1.5">
-        <span className="text-xs font-semibold tracking-widest text-emerald-400 uppercase">
+    <div className="mt-2 w-full overflow-hidden rounded-lg border border-emerald-500/30">
+      <div className="flex items-center gap-2 border-b border-emerald-500/30 bg-emerald-900/10 px-4 py-1.5">
+        <span className="text-xs font-semibold tracking-widest text-emerald-500 uppercase">
           Output
         </span>
       </div>

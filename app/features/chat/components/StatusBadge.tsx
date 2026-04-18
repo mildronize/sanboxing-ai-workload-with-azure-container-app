@@ -27,15 +27,15 @@ export function StatusBadge({ workerType, elapsedMs, isPending }: StatusBadgePro
 
   if (isCAJ && isPending) {
     emoji = "⏳";
-    colorClass = "text-amber-300";
+    colorClass = "text-amber-500";
     borderClass = "border-amber-500/40 bg-amber-500/10";
   } else if (isCAJ) {
     emoji = "✅";
-    colorClass = "text-emerald-300";
+    colorClass = "text-emerald-500";
     borderClass = "border-emerald-500/40 bg-emerald-500/10";
   } else {
     emoji = "⚡";
-    colorClass = "text-sky-300";
+    colorClass = "text-sky-400";
     borderClass = "border-sky-500/40 bg-sky-500/10";
   }
 
