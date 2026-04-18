@@ -98,6 +98,26 @@ resource "azurerm_container_app" "backend" {
         name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
         value = var.azure_openai_deployment_name
       }
+
+      env {
+        name        = "DATABASE_URL"
+        secret_name = "database-url"
+      }
+
+      env {
+        name        = "BETTER_AUTH_SECRET"
+        secret_name = "better-auth-secret"
+      }
+
+      env {
+        name  = "BETTER_AUTH_URL"
+        value = "https://${var.project_name}-backend.${azurerm_container_app_environment.main.default_domain}"
+      }
+
+      env {
+        name  = "MAX_USERS"
+        value = tostring(var.max_users)
+      }
     }
 
     min_replicas = 1
@@ -107,6 +127,16 @@ resource "azurerm_container_app" "backend" {
   secret {
     name  = "azure-openai-api-key"
     value = var.azure_openai_api_key
+  }
+
+  secret {
+    name  = "database-url"
+    value = "postgresql://${var.db_admin_username}:${var.db_admin_password}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/${local.db_name}?sslmode=require"
+  }
+
+  secret {
+    name  = "better-auth-secret"
+    value = var.better_auth_secret
   }
 
   ingress {

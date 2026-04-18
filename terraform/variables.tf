@@ -47,3 +47,27 @@ variable "backend_callback_url" {
   type        = string
   default     = ""
 }
+
+variable "db_admin_username" {
+  description = "PostgreSQL Flexible Server administrator username."
+  type        = string
+  default     = "pgadmin"
+}
+
+variable "db_admin_password" {
+  description = "PostgreSQL Flexible Server administrator password."
+  type        = string
+  sensitive   = true
+}
+
+variable "better_auth_secret" {
+  description = "Secret key used by Better Auth for signing tokens."
+  type        = string
+  sensitive   = true
+}
+
+variable "max_users" {
+  description = "Maximum number of allowed user registrations."
+  type        = number
+  default     = 30
+}

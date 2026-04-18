@@ -11,7 +11,7 @@
 
 ## Batch 3: Terraform
 
-- [ ] task-4: Terraform PostgreSQL Flexible Server + wire DATABASE_URL to backend
+- [x] task-4: Terraform PostgreSQL Flexible Server + wire DATABASE_URL to backend
 
 ## Batch 4: Docs + Verification
 

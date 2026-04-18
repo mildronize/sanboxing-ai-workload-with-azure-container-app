@@ -17,3 +17,8 @@ output "container_app_environment_id" {
   description = "Resource ID of the Container App Environment."
   value       = azurerm_container_app_environment.main.id
 }
+
+output "database_host" {
+  description = "FQDN of the PostgreSQL Flexible Server."
+  value       = azurerm_postgresql_flexible_server.main.fqdn
+}
