@@ -47,7 +47,7 @@ export default function Header() {
                 <div className="flex items-center gap-2">
                   <Link
                     to="/login"
-                    className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] no-underline transition hover:border-[rgba(23,58,64,0.35)] hover:bg-white/80"
+                    className="rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] no-underline transition hover:bg-[var(--surface)]"
                   >
                     Sign in
                   </Link>
