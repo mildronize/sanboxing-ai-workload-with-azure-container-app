@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { authPlugin } from "#server/lib/auth-plugin";
 import { createContainer } from "#server/context/app-context";
 import { createChatRoutes } from "#server/modules/chat";
+import { prisma } from "#server/lib/prisma";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -23,6 +24,17 @@ const baseApp = new Elysia()
 
   // --- health check ---
   .get("/api/health", () => ({ status: "ok" }))
+
+  // --- registration status (no auth required) ---
+  .get("/api/auth/registration-status", async () => {
+    const maxUsers = Number(process.env["MAX_USERS"] ?? "30");
+    const currentUsers = await prisma.user.count();
+    return {
+      registrationOpen: currentUsers < maxUsers,
+      currentUsers,
+      maxUsers,
+    };
+  })
 
   // --- Better Auth handler + auth macro ---
   .use(authPlugin)

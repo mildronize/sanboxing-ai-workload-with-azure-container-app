@@ -6,8 +6,8 @@
 
 ## Batch 2: Auth Changes
 
-- [ ] task-2: Add auth gate on /chat route (frontend redirect + backend withAuth)
-- [ ] task-3: Max users registration limit (MAX_USERS env var, 403 when full, signup UI)
+- [x] task-2: Add auth gate on /chat route (frontend redirect + backend withAuth)
+- [x] task-3: Max users registration limit (MAX_USERS env var, 403 when full, signup UI)
 
 ## Batch 3: Terraform
 

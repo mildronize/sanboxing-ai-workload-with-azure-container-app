@@ -8,7 +8,9 @@ All API routes use `/api/` prefix.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/chat` | None | Send message, trigger worker |
+| `POST` | `/api/chat` | Required | Send message, trigger worker |
+| `POST` | `/api/chat/generate` | Required | Generate code from message |
+| `POST` | `/api/chat/execute` | Required | Execute generated code |
 | `POST` | `/api/worker/callback/:jobId` | None | CAJ worker posts result back |
 | `GET` | `/api/worker/result/:jobId` | None | Frontend polls for CAJ result |
 

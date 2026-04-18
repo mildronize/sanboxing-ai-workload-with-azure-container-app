@@ -29,7 +29,8 @@
 ## Chat Feature Specifics
 
 - assistant-ui with `useExternalStoreRuntime` (not AI SDK runtime)
-- No auth on chat routes -- demo app, single presenter
+- Chat routes require auth via `{ withAuth: true }` macro (POST /chat, /chat/generate, /chat/execute)
+- Worker callback/poll routes stay public (called by the worker, not the browser)
 - Dark theme, large fonts (min 18px body)
 
 ## Worker Container

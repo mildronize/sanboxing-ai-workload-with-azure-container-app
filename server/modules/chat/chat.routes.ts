@@ -1,8 +1,10 @@
 import { Elysia, t } from "elysia";
+import { authPlugin } from "#server/lib/auth-plugin.ts";
 import type { ServiceContainer } from "#server/context/app-context.ts";
 
 export function createChatRoutes(container: ServiceContainer) {
   return new Elysia({ prefix: "/api" })
+    .use(authPlugin)
     .post(
       "/chat",
       async ({ body, query }) => {
@@ -11,6 +13,7 @@ export function createChatRoutes(container: ServiceContainer) {
         return result;
       },
       {
+        withAuth: true,
         body: t.Object({ message: t.String(), conversationId: t.Optional(t.String()) }),
         query: t.Object({ worker: t.Optional(t.Union([t.Literal("caj"), t.Literal("session")])) }),
       },
@@ -22,6 +25,7 @@ export function createChatRoutes(container: ServiceContainer) {
         return result;
       },
       {
+        withAuth: true,
         body: t.Object({ message: t.String() }),
       },
     )
@@ -32,6 +36,7 @@ export function createChatRoutes(container: ServiceContainer) {
         return result;
       },
       {
+        withAuth: true,
         body: t.Object({ code: t.String(), conversationId: t.String() }),
       },
     )

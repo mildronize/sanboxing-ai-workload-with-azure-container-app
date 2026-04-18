@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { signUp } from '#/lib/auth-client'
+import { api } from '#/lib/eden'
 
 export const Route = createFileRoute('/signup')({ component: SignupPage })
 
@@ -11,6 +12,15 @@ function SignupPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    api['api']['auth']['registration-status'].get().then(({ data }) => {
+      if (data) {
+        setRegistrationOpen(data.registrationOpen)
+      }
+    })
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -28,6 +38,25 @@ function SignupPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (registrationOpen === false) {
+    return (
+      <main className="page-wrap flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-12">
+        <div className="island-shell w-full max-w-md rounded-2xl p-8 text-center">
+          <h1 className="mb-2 text-2xl font-bold text-[var(--sea-ink)]">Registration closed</h1>
+          <p className="text-sm text-[var(--sea-ink-soft)]">
+            Registration is closed — maximum users reached.
+          </p>
+          <p className="mt-5 text-center text-sm text-[var(--sea-ink-soft)]">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-[var(--lagoon-deep)] hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </div>
+      </main>
+    )
   }
 
   return (
