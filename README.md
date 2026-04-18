@@ -72,7 +72,7 @@ The UI shows the generated Python code, execution output (stdout), and the model
 |-------|-----------|
 | Frontend | React 19, Vite, TanStack Router, Tailwind CSS v4, assistant-ui |
 | Backend | Elysia (Bun runtime), Azure OpenAI SDK (tool calling) |
-| Database | Prisma v7 (SQLite via libsql) |
+| Database | Prisma v7 (PostgreSQL) |
 | AI | Azure OpenAI gpt-4o-mini with `execute_python` tool |
 | Sessions | Azure Container Apps Dynamic Sessions (PythonLTS) |
 | Jobs | Azure Container Apps Jobs (manual trigger) |
@@ -91,20 +91,25 @@ bun install
 # Set up environment
 cp .env.example .env
 
-# Generate Prisma client and create local DB
+# Start local PostgreSQL
+docker compose up -d
+
+# Generate Prisma client and push schema
 bun run db:generate
 bun run db:push
 
 # Start dev server
 bun run dev
-# Open http://localhost:3000/chat
+# Open http://localhost:3000 — register an account, then access /chat
 ```
 
-Mock mode returns fake Python code and stdout. Toggle between "Dynamic Session" and "Container App Job" in the UI to see both paths.
+Mock mode returns fake Python code and stdout. Register an account (max 30 users by default), then toggle between "Dynamic Session" and "Container App Job" in the chat UI.
 
 ## Deploy to Azure
 
-See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full deployment guide — covers Terraform setup, Azure OpenAI configuration, ngrok tunneling for local development, and end-to-end testing.
+See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full deployment guide with two options:
+- **Option 1: Local backend + ngrok** — best for development and debugging
+- **Option 2: Cloud-only** — everything runs on Azure, no local server needed
 
 ## Project Structure
 
@@ -128,7 +133,8 @@ worker/
   Dockerfile                       # python:3.12-slim (CAJ only)
   run.py                           # Reads CODE, runs it, POSTs stdout to CALLBACK_URL
 
-terraform/                         # Azure infra (session pool, CAJ job, backend app)
+terraform/                         # Azure infra (PostgreSQL, session pool, CAJ job, backend app)
+docker-compose.yml                 # Local PostgreSQL for development
 prisma/schema.prisma               # ChatMessage, WorkerResult models
 ```
 

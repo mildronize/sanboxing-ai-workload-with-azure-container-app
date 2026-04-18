@@ -15,4 +15,4 @@
 
 ## Batch 4: Docs + Verification
 
-- [ ] task-5: DEPLOY.md restructure (two options) + final verification pass
+- [x] task-5: DEPLOY.md restructure (two options) + final verification pass
