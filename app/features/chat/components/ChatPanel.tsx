@@ -44,8 +44,10 @@ function WorkerModeToggle({
             onClick={() => onToggle(value)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
               mode === value
-                ? "bg-[var(--surface-strong)] text-[var(--sea-ink)] shadow-sm"
-                : "text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)]"
+                ? value === "session"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "bg-amber-600 text-white shadow-sm"
+                : "text-[var(--sea-ink-soft)] hover:text-[var(--sea-ink)] hover:bg-[var(--surface-strong)]"
             }`}
           >
             {label}
@@ -97,7 +99,7 @@ function ChatMessage() {
     <MessagePrimitive.Root className="flex flex-col gap-1 py-4">
       <MessagePrimitive.If user>
         <div className="flex justify-end">
-          <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-[var(--lagoon)] px-5 py-3 text-lg text-white">
+          <div className="max-w-[80%] rounded-2xl rounded-br-sm bg-sky-700 px-5 py-3 text-lg text-white">
             <MessagePrimitive.Content />
           </div>
         </div>
@@ -105,22 +107,31 @@ function ChatMessage() {
       <MessagePrimitive.If assistant>
         <div className="flex flex-col items-start gap-2">
           <div className="w-full max-w-[90%] rounded-2xl rounded-bl-sm border border-[var(--line)] bg-[var(--surface)] px-5 py-3 text-lg text-[var(--sea-ink)]">
-            {isPending ? (
+            {isPending && !meta?.code ? (
               <div className="flex items-center gap-3 text-[var(--sea-ink-soft)]">
-                <span className="text-base">Processing</span>
+                <span className="text-base">Thinking</span>
                 <span className="inline-flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--lagoon)] [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--lagoon)] [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--lagoon)] [animation-delay:300ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-purple-400 [animation-delay:300ms]" />
                 </span>
               </div>
+            ) : isPending && meta?.code ? (
+              <>
+                {meta.code && <CodeBlock code={meta.code} />}
+                <div className="mt-3 flex items-center gap-3 text-[var(--sea-ink-soft)]">
+                  <span className="text-base">Executing</span>
+                  <span className="inline-flex gap-1">
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:0ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:150ms]" />
+                    <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-400 [animation-delay:300ms]" />
+                  </span>
+                </div>
+              </>
             ) : (
               <>
-                {/* Reply text (model's explanation) always rendered first when present */}
                 <MessagePrimitive.Content />
-                {/* Code block: generated Python code */}
                 {meta?.code && <CodeBlock code={meta.code} />}
-                {/* Stdout block: execution output */}
                 {meta?.stdout && <StdoutBlock stdout={meta.stdout} />}
               </>
             )}

@@ -18,6 +18,17 @@ export interface SendMessageResult {
   elapsedMs?: number;
 }
 
+export interface GenerateCodeResult {
+  code: string;
+  reply: string;
+}
+
+export interface ExecuteCodeResult {
+  stdout: string;
+  reply: string;
+  elapsedMs: number;
+}
+
 export class ChatService {
   private logger: ILogger;
   private appContext: AppContext;
@@ -256,6 +267,83 @@ export class ChatService {
       workerType: "session",
       status: "done",
     };
+  }
+
+  async generateCode(message: string): Promise<GenerateCodeResult> {
+    this.logger.info("ChatService.generateCode");
+
+    if (this.appContext.config.useMockWorkers) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return {
+        code: `# Mock code for: ${message}\nprint("Hello from mock!")`,
+        reply: "",
+      };
+    }
+
+    const { azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName } = this.appContext.config.azure;
+    const client = createOpenAIClient({ azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName });
+    const messages = buildInitialMessages(message);
+    return generatePythonCode(messages, client);
+  }
+
+  async executeCode(code: string, conversationId: string): Promise<ExecuteCodeResult> {
+    this.logger.info("ChatService.executeCode", { conversationId });
+
+    const startTime = Date.now();
+
+    if (this.appContext.config.useMockWorkers) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const elapsedMs = Date.now() - startTime;
+      return {
+        stdout: "Hello from mock!\n",
+        reply: "[Mock] Executed successfully",
+        elapsedMs,
+      };
+    }
+
+    const { azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName, sessionPoolEndpoint } =
+      this.appContext.config.azure;
+
+    const client = createOpenAIClient({ azureOpenaiEndpoint, azureOpenaiApiKey, azureOpenaiDeploymentName });
+    const executionResult = await sendToSession({ sessionPoolEndpoint, code, conversationId });
+
+    let reply = executionResult.stdout;
+    if (!executionResult.stderr) {
+      const messages: ChatCompletionMessageParam[] = [
+        ...buildInitialMessages("Explain the result"),
+        {
+          role: "assistant" as const,
+          content: null,
+          tool_calls: [{
+            id: "call_exec",
+            type: "function" as const,
+            function: { name: "execute_python", arguments: JSON.stringify({ code }) },
+          }],
+        },
+        {
+          role: "tool" as const,
+          tool_call_id: "call_exec",
+          content: executionResult.stdout,
+        },
+      ];
+      const { reply: formattedReply } = await generatePythonCode(messages, client);
+      reply = formattedReply || executionResult.stdout;
+    } else {
+      reply = `Error: ${executionResult.stderr}`;
+    }
+
+    const elapsedMs = Date.now() - startTime;
+
+    await this.repo.createMessage({
+      role: "assistant",
+      content: reply,
+      workerType: "session",
+      code,
+      stdout: executionResult.stdout || executionResult.stderr,
+      elapsedMs,
+    });
+
+    return { stdout: executionResult.stdout || executionResult.stderr, reply, elapsedMs };
   }
 
   async handleCallback(jobId: string, result: string): Promise<void> {

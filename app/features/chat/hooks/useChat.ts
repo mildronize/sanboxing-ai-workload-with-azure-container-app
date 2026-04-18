@@ -66,23 +66,46 @@ export function useChat() {
 
       try {
         if (workerMode === "session") {
-          const { data, error } = await api.api.chat.post(
-            { message: textContent, conversationId: conversationIdRef.current },
-            { query: { worker: "session" } },
-          );
-          if (error) throw new Error("Failed to send message");
-
-          const assistantMsg: ChatMessage = {
-            id: `assistant-${Date.now()}`,
-            role: "assistant",
-            content: data.reply ?? "",
-            status: "complete",
+          // Step 1: Show "Thinking..." while generating code
+          const thinkingId = `assistant-thinking-${Date.now()}`;
+          setMessages((prev) => [...prev, {
+            id: thinkingId,
+            role: "assistant" as const,
+            content: "Thinking...",
+            status: "running" as const,
             workerType: "session",
-            elapsedMs: data.elapsedMs ?? undefined,
-            code: data.code ?? undefined,
-            stdout: data.stdout ?? undefined,
-          };
-          setMessages((prev) => [...prev, assistantMsg]);
+          }]);
+
+          const { data: genData, error: genError } = await api.api.chat.generate.post(
+            { message: textContent },
+          );
+          if (genError) throw new Error("Failed to generate code");
+
+          // Step 2: Show the generated code, update status to "Executing..."
+          setMessages((prev) => prev.map((m) =>
+            m.id === thinkingId
+              ? { ...m, content: "Executing...", code: genData.code || undefined }
+              : m,
+          ));
+
+          // Step 3: Execute the code
+          const { data: execData, error: execError } = await api.api.chat.execute.post(
+            { code: genData.code, conversationId: conversationIdRef.current },
+          );
+          if (execError) throw new Error("Failed to execute code");
+
+          // Step 4: Show final result
+          setMessages((prev) => prev.map((m) =>
+            m.id === thinkingId
+              ? {
+                  ...m,
+                  content: execData.reply ?? "",
+                  status: "complete" as const,
+                  elapsedMs: execData.elapsedMs ?? undefined,
+                  stdout: execData.stdout ?? undefined,
+                }
+              : m,
+          ));
         } else {
           // CAJ mode: start job then poll
           const { data, error } = await api.api.chat.post(

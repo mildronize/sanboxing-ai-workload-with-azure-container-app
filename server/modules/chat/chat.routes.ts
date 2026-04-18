@@ -16,6 +16,26 @@ export function createChatRoutes(container: ServiceContainer) {
       },
     )
     .post(
+      "/chat/generate",
+      async ({ body }) => {
+        const result = await container.chatService.generateCode(body.message);
+        return result;
+      },
+      {
+        body: t.Object({ message: t.String() }),
+      },
+    )
+    .post(
+      "/chat/execute",
+      async ({ body }) => {
+        const result = await container.chatService.executeCode(body.code, body.conversationId);
+        return result;
+      },
+      {
+        body: t.Object({ code: t.String(), conversationId: t.String() }),
+      },
+    )
+    .post(
       "/worker/callback/:jobId",
       async ({ params, body }) => {
         await container.chatService.handleCallback(params.jobId, body.stdout);
