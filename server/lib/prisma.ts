@@ -1,9 +1,12 @@
 import { PrismaClient } from "#generated/client/client.ts";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 
-const adapter = new PrismaLibSql({
-  url: process.env["DATABASE_URL"] ?? "file:./dev.db",
+const pool = new pg.Pool({
+  connectionString: process.env["DATABASE_URL"] ?? "postgresql://sandbox:sandbox@localhost:5432/sandbox_dev",
 });
+
+const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 

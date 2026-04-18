@@ -2,7 +2,7 @@
 
 ## Batch 1: Database Switch (Foundation)
 
-- [ ] task-1: Switch Prisma from SQLite to PostgreSQL (schema, adapter, docker-compose)
+- [x] task-1: Switch Prisma from SQLite to PostgreSQL (schema, adapter, docker-compose)
 
 ## Batch 2: Auth Changes
 
