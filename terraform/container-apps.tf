@@ -169,6 +169,8 @@ resource "azurerm_container_app_job" "worker" {
   replica_timeout_in_seconds = 300
   replica_retry_limit        = 1
 
+  workload_profile_name = "Consumption"
+
   manual_trigger_config {
     parallelism              = 1
     replica_completion_count = 1

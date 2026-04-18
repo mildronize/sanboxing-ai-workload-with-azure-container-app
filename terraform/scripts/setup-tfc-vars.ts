@@ -45,7 +45,11 @@ const VAR_DEFS: VarDef[] = [
   { key: "azure_openai_deployment_name", category: "terraform", sensitive: false, description: "Azure OpenAI deployment name" },
   { key: "worker_image", category: "terraform", sensitive: false, description: "ghcr.io worker image" },
   { key: "backend_image", category: "terraform", sensitive: false, description: "ghcr.io backend image (placeholder)" },
-  { key: "backend_callback_url", category: "terraform", sensitive: false, description: "ngrok callback URL" },
+  { key: "backend_callback_url", category: "terraform", sensitive: false, description: "ngrok callback URL (Option 1) or empty (Option 2)" },
+  { key: "db_admin_username", category: "terraform", sensitive: false, description: "PostgreSQL admin username" },
+  { key: "db_admin_password", category: "terraform", sensitive: true, description: "PostgreSQL admin password" },
+  { key: "better_auth_secret", category: "terraform", sensitive: true, description: "Better Auth signing key (32+ chars)" },
+  { key: "max_users", category: "terraform", sensitive: false, description: "Max allowed user registrations" },
 
   // Environment variables (Azure auth for TFC remote execution)
   { key: "ARM_CLIENT_ID", category: "env", sensitive: false, description: "Service principal appId" },
